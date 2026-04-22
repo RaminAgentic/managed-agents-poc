@@ -40,7 +40,7 @@ Step outputs are in `docs/project-plan/`. Read these files for detailed project 
 
 - **Concept:** `docs/project-plan/concept.md` - Bare-bones proof of concept for Claude managed agents — buil...
 - **Design:** `docs/project-plan/design.md` - modern design, ocean colors, mui
-- **Sprint Plan:** `docs/project-plan/sprint-plan.md` - 12 sprints planned
+- **Sprint Plan:** `docs/project-plan/sprint-plan.md` - 13 sprints planned
 
 ## Active Skills & Expertise
 
@@ -99,5 +99,6 @@ You are an expert in web application testing using Playwright and modern testing
 - Keep tests fast by parallelizing where possible
 
 ## Current Step
-**Step 2:** Development
-Plan and execute development sprints
+**Step 3:** Testing
+Generate QA plan and execute tests
+*This step requires human approval before proceeding.*

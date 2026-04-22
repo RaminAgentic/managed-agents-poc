@@ -65,7 +65,7 @@ export default function RunListPage() {
   // Loading state
   if (loading) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box data-testid="runs-page-root" sx={{ p: 3 }}>
         <Skeleton variant="rectangular" height={40} sx={{ mb: 2 }} animation="pulse" />
         {[...Array(5)].map((_, i) => (
           <Skeleton
@@ -84,6 +84,7 @@ export default function RunListPage() {
   if (!error && runs.length === 0) {
     return (
       <Box
+        data-testid="runs-page-root"
         sx={{
           display: "flex",
           flexDirection: "column",
@@ -114,7 +115,7 @@ export default function RunListPage() {
   }
 
   return (
-    <Box sx={{ p: 3, height: "100%", overflow: "auto" }}>
+    <Box data-testid="runs-page-root" sx={{ p: 3, height: "100%", overflow: "auto" }}>
       <Box
         sx={{
           display: "flex",

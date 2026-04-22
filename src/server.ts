@@ -93,6 +93,11 @@ app.post("/api/chat", async (req: Request, res: Response) => {
   }
 });
 
+// --- 404 fallback for /api (must be before the SPA catch-all) ---
+app.use("/api", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "Not found" });
+});
+
 // --- Production: serve React build ---
 if (process.env.NODE_ENV === "production") {
   const clientDist = path.join(__dirname, "..", "client", "dist");
@@ -101,11 +106,6 @@ if (process.env.NODE_ENV === "production") {
     res.sendFile(path.join(clientDist, "index.html"));
   });
 }
-
-// --- 404 fallback for /api ---
-app.use("/api", (_req: Request, res: Response) => {
-  res.status(404).json({ error: "Not found" });
-});
 
 // --- Global error handler (MUST have 4 args, MUST be last) ---
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

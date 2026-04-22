@@ -15,31 +15,38 @@ function NavButton({
   to,
   icon,
   label,
+  "data-testid": testId,
 }: {
   to: string;
   icon: React.ReactNode;
   label: string;
+  "data-testid"?: string;
 }) {
   return (
-    <Button
-      component={NavLink}
+    <NavLink
       to={to}
-      startIcon={icon}
-      sx={{
-        textTransform: "none",
-        fontWeight: 500,
-        color: "inherit",
-        opacity: 0.7,
-        "&.active": {
-          opacity: 1,
-          borderBottom: "2px solid",
-          borderColor: "secondary.main",
-          borderRadius: 0,
-        },
-      }}
+      data-testid={testId}
+      style={{ textDecoration: "none" }}
     >
-      {label}
-    </Button>
+      {({ isActive }) => (
+        <Button
+          startIcon={icon}
+          sx={{
+            textTransform: "none",
+            fontWeight: 500,
+            color: "inherit",
+            opacity: isActive ? 1 : 0.7,
+            borderBottom: isActive ? "2px solid" : "2px solid transparent",
+            borderColor: isActive ? "secondary.main" : "transparent",
+            borderRadius: 0,
+            // Ensure the button doesn't intercept the NavLink's navigation
+            pointerEvents: "none",
+          }}
+        >
+          {label}
+        </Button>
+      )}
+    </NavLink>
   );
 }
 
@@ -61,11 +68,13 @@ export default function App() {
 
           <NavButton
             to="/"
+            data-testid="nav-editor"
             icon={<AccountTreeIcon sx={{ fontSize: 18 }} />}
             label="Editor"
           />
           <NavButton
             to="/runs"
+            data-testid="nav-runs"
             icon={
               <Badge
                 badgeContent={activeRunCount}
@@ -86,6 +95,7 @@ export default function App() {
           />
           <NavButton
             to="/chat"
+            data-testid="nav-chat"
             icon={<ChatIcon sx={{ fontSize: 18 }} />}
             label="Chat"
           />

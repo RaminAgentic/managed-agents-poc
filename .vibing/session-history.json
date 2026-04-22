@@ -124,7 +124,24 @@
       "tasksCompleted": 0,
       "totalTasks": 5,
       "endedAt": "2026-04-22T15:05:45.315Z"
+    },
+    {
+      "sessionId": "session_fix-sprint_1776869528608_mrd4lnq9h-1776870487453_1776879285801",
+      "sprintId": "fix-sprint_1776869528608_mrd4lnq9h-1776870487453",
+      "status": "completed",
+      "startedAt": "2026-04-22T17:34:45.801Z",
+      "tasksCompleted": 0,
+      "totalTasks": 1,
+      "endedAt": "2026-04-22T17:49:15.165Z"
+    },
+    {
+      "sessionId": "session_sprint_bugfix_1776879710309_743x4408z_1776879719428",
+      "sprintId": "sprint_bugfix_1776879710309_743x4408z",
+      "status": "running",
+      "startedAt": "2026-04-22T17:41:59.428Z",
+      "tasksCompleted": 0,
+      "totalTasks": 1
     }
   ],
-  "lastUpdated": "2026-04-22T15:05:45.384Z"
+  "lastUpdated": "2026-04-22T17:49:15.179Z"
 }

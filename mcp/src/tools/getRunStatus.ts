@@ -25,11 +25,11 @@ export async function getRunStatusHandler(
 
     // Get last 5 events as logs, truncating large payloads
     const recentEvents = (detail.events ?? []).slice(-5).map((evt) => {
-      let payload = evt.payload_json;
+      let payload = evt.payload;
       if (payload && payload.length > 1024) {
         payload = payload.slice(0, 1024) + "... (truncated)";
       }
-      return `[${evt.type}] ${payload ?? ""}`;
+      return `[${evt.event_type}] ${payload ?? ""}`;
     });
 
     const parts = [

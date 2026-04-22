@@ -125,8 +125,10 @@ export interface RunDetail {
   }>;
   events: Array<{
     id: string;
-    type: string;
-    payload_json: string;
+    run_id: string;
+    step_id: string | null;
+    event_type: string;
+    payload: string;
     created_at: string;
   }>;
 }

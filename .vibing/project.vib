@@ -6,7 +6,7 @@
   "projectPath": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
   "status": "development",
   "createdAt": "2026-04-22T08:39:52.783Z",
-  "updatedAt": "2026-04-22T15:08:07.528Z",
+  "updatedAt": "2026-04-22T17:49:14.852Z",
   "version": "1.0.0",
   "useCaseNodes": [],
   "requirementNodes": [],
@@ -785,13 +785,13 @@
       "name": "Fix: Sprint 11: MCP Server — Claude Code Integration",
       "description": "Auto-created to address 1 critical/high priority issue(s) from code review",
       "priority": "high",
-      "status": "pending",
+      "status": "completed",
       "individualTasks": [
         {
           "id": "fix-task-1776870487528-0",
           "title": "Fix: MCP getRunStatus reads wrong event field names from server response",
           "description": "The MCP HTTP client (mcp/src/client.ts lines 126-131) defines RunDetail.events with fields 'type' and 'payload_json', but the server's GET /api/runs/:id endpoint returns events with fields 'event_type' and 'payload' (from persistence.ts toRunEventRow). In getRunStatus.ts (lines 27-33), the tool reads evt.payload_json (undefined) and evt.type (undefined), causing every event to render as '[undefined] ' instead of showing actual event types and payloads. The web client (client/src/types.ts RunEvent) correctly uses 'event_type' and 'payload', so only the MCP tool is affected.\n\nFile: mcp/src/client.ts",
-          "status": "pending",
+          "status": "completed",
           "priority": "high",
           "fromIssue": "issue_review_1776870487231_0",
           "relevantFiles": [
@@ -800,6 +800,29 @@
               "action": "modify"
             }
           ]
+        }
+      ]
+    },
+    {
+      "id": "sprint_1776880139595_brpaqajh6",
+      "name": "Sprint 13: HTTP MCP Endpoint for Claude for Work",
+      "description": "Add a Streamable HTTP MCP endpoint to the Express server so the workflow tools can be registered in Claude for Work (claude.ai web). The stdio subprocess works for Claude Code; this adds an HTTP transport for web-based Claude clients.",
+      "priority": "high",
+      "status": "pending",
+      "individualTasks": [
+        {
+          "id": "task_1776880139600_0_0yke7",
+          "title": "Add @modelcontextprotocol/sdk to root package.json and create HTTP MCP handler",
+          "description": "Install `@modelcontextprotocol/sdk@^1.29.0` as a dependency in the root `package.json` (the main server package, not the mcp/ sub-package). Then create `src/mcp/httpHandler.ts` that:\n1. Imports `McpServer` from `@modelcontextprotocol/sdk/server/mcp.js` and `StreamableHTTPServerTransport` from `@modelcontextprotocol/sdk/server/streamableHttp.js`\n2. Registers the same 5 tools used in the stdio server: `list_workflows`, `start_workflow`, `get_run_status`, `list_runs`, `create_workflow` — but instead of using the HTTP client from mcp/src/client.ts, call the Prisma/service layer directly (import from `../workflow/persistence` and `../workflow/orchestrator` etc. as needed)\n3. Exports an Express middleware-compatible handler function `mcpHttpHandler` that creates a `StreamableHTTPServerTransport` per request and handles it\n\nRefer to the existing tool implementations in `mcp/src/tools/` for the tool logic, and the existing service layer in `src/workflow/` and `src/api/` for the business logic to call directly.",
+          "status": "pending",
+          "priority": "high"
+        },
+        {
+          "id": "task_1776880139600_1_elcw6",
+          "title": "Mount the MCP HTTP endpoint in Express server and verify",
+          "description": "In `src/server.ts`, import `mcpHttpHandler` from `./mcp/httpHandler` and mount it at `POST /mcp` BEFORE the `/api` 404 handler:\n\n```ts\napp.post('/mcp', mcpHttpHandler);\n```\n\nAlso add a `GET /mcp` route that returns a simple JSON describing the server (for discoverability):\n```ts\napp.get('/mcp', (_req, res) => res.json({ name: 'flow-manager', version: '1.0.0', transport: 'streamable-http' }));\n```\n\nVerify the endpoint works locally by running a TypeScript check (`npx tsc --noEmit`) and checking the server starts without errors. The endpoint should be reachable at `http://localhost:5001/mcp` in dev and `https://managed-agents-poc.onrender.com/mcp` in production.",
+          "status": "pending",
+          "priority": "high"
         }
       ]
     }
@@ -873,6 +896,81 @@
       "reportedBy": "Code Reviewer (Haiku)",
       "version": 1,
       "images": []
+    },
+    {
+      "id": "issue_qa_1776879680996_ny81h15my",
+      "type": "issue",
+      "title": "[BUG-001] Workflow toolbar Save button is visible not working",
+      "description": "Verify the workflow toolbar renders a Save control on the editor page.\n\nExpected: A Save button labeled 'Save' is present in the editor toolbar.\n\nActual: Expected text \"Save\" not found in element. Actual text: \"Workflow WorkbenchEditorRun HistoryChat...\"\n\nFailed at: Step 4: assert - Verify Save action label is present in toolbar\n\nPage: https://managed-agents-poc.onrender.com/\n\nConsole errors:\n• Expected text \"Save\" not found in element. Actual text: \"Workflow WorkbenchEditorRun HistoryChat...\"\n\nSteps:\n1. Open the editor home page\n2. Allow toolbar to mount\n3. Verify MUI toolbar exists\n4. Verify Save action label is present in toolbar",
+      "issueType": "bug",
+      "priority": "medium",
+      "status": "open",
+      "estimatedEffort": "medium",
+      "source": "qa",
+      "qaTestCaseId": "tc_1776879584020_2",
+      "qaTestRunId": "qtr_1776879669996_bwgp5iuep",
+      "images": [],
+      "createdAt": "2026-04-22T17:41:20.996Z",
+      "updatedAt": "2026-04-22T17:41:20.996Z",
+      "isEditing": false,
+      "isDirty": false,
+      "relatedRequirements": [],
+      "relatedUseCases": [],
+      "labels": [
+        "qa-discovered"
+      ],
+      "reportedBy": "qa-agent",
+      "version": 1
+    },
+    {
+      "id": "issue_qa_1776879696922_yox8onkiq",
+      "type": "issue",
+      "title": "[BUG-002] Navigate from editor to runs history page not working",
+      "description": "Verify the React Router setup allows navigation to the /runs route and the run list page renders.\n\nExpected: After navigating to /runs, the URL pathname is /runs and the page mounts without falling back to a 404.\n\nActual: Expected window.location.pathname to contain \"/runs\", got \"/\"\n\nFailed at: Step 5: assert - Verify we are on the runs route\n\nPage: https://managed-agents-poc.onrender.com/\n\nConsole errors:\n• Expected window.location.pathname to contain \"/runs\", got \"/\"\n\nSteps:\n1. Start at the editor\n2. Allow editor to mount\n3. Navigate to the runs history page\n4. Allow runs page to mount\n5. Verify we are on the runs route\n6. Verify React app root is still mounted (route was matched)",
+      "issueType": "bug",
+      "priority": "high",
+      "status": "in-sprint",
+      "estimatedEffort": "medium",
+      "source": "qa",
+      "qaTestCaseId": "tc_1776879584020_5",
+      "qaTestRunId": "qtr_1776879669996_bwgp5iuep",
+      "images": [],
+      "createdAt": "2026-04-22T17:41:36.922Z",
+      "updatedAt": "2026-04-22T17:41:36.922Z",
+      "isEditing": false,
+      "isDirty": false,
+      "relatedRequirements": [],
+      "relatedUseCases": [],
+      "labels": [
+        "qa-discovered"
+      ],
+      "reportedBy": "qa-agent",
+      "version": 1
+    },
+    {
+      "id": "issue_qa_1776879703022_1bf2fiino",
+      "type": "issue",
+      "title": "[BUG-003] Unknown route does not crash the app not working",
+      "description": "Verify visiting an unmatched client-side route keeps the React app mounted (no white screen / crash).\n\nExpected: The React root remains mounted at an unknown path; the app does not throw an unrecoverable error.\n\nActual: Expected window.location.pathname to contain \"/this-route-does-not-exist\", got \"/\"\n\nFailed at: Step 4: assert - Verify URL reflects the attempted path\n\nPage: https://managed-agents-poc.onrender.com/\n\nConsole errors:\n• Expected window.location.pathname to contain \"/this-route-does-not-exist\", got \"/\"\n\nSteps:\n1. Navigate to a nonexistent client route\n2. Allow router to settle\n3. Verify the React root element is still mounted\n4. Verify URL reflects the attempted path",
+      "issueType": "bug",
+      "priority": "low",
+      "status": "open",
+      "estimatedEffort": "medium",
+      "source": "qa",
+      "qaTestCaseId": "tc_1776879584020_7",
+      "qaTestRunId": "qtr_1776879669996_bwgp5iuep",
+      "images": [],
+      "createdAt": "2026-04-22T17:41:43.023Z",
+      "updatedAt": "2026-04-22T17:41:43.023Z",
+      "isEditing": false,
+      "isDirty": false,
+      "relatedRequirements": [],
+      "relatedUseCases": [],
+      "labels": [
+        "qa-discovered"
+      ],
+      "reportedBy": "qa-agent",
+      "version": 1
     }
   ],
   "processFlow": {
@@ -1049,5 +1147,7 @@
   "fontHeadings": "inter",
   "fontBody": "inter",
   "fontMono": "fira-code",
-  "devServerUrl": "http://localhost:5002"
+  "devServerUrl": "http://localhost:5002",
+  "qaConfigured": true,
+  "qaTestUrl": "https://managed-agents-poc.onrender.com"
 }
