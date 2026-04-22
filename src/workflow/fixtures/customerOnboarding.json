@@ -110,7 +110,7 @@
       "name": "Salesforce account creator",
       "modelConfig": { "model": "claude-sonnet-4-6" },
       "config": {
-        "instructions": "Create a Salesforce Contact + Account from the consolidated customer profile. Populate: Account.Name, Account.BillingStreet/City/Postal, Contact.Name/Email/Phone/Birthdate, Contact.AnnualIncome__c (custom field), Contact.Employer__c, Contact.KycStatus__c = 'Verified'. Link them together. Then post a summary to the #onboarding Slack channel including the new Account ID.",
+        "instructions": "Create a Salesforce Contact + Account from the consolidated customer profile. Populate: Account.Name, Account.BillingStreet/City/Postal, Contact.Name/Email/Phone/Birthdate, Contact.AnnualIncome__c (custom field), Contact.Employer__c, Contact.KycStatus__c = 'Verified'. Link them together. Then post a summary to the #onboarding Slack channel including the new Account ID.\n\nAFTER your text summary, append `### Visual Artifact` and a single fenced ```jsx block with a default-exported React component rendering a 'Welcome to the family' onboarding card: customer avatar placeholder with initials, name, verified ✅ badge, a 3-column panel (identity / income / address) each showing the extracted fields, a green 'KYC Verified' stamp, and a SF Account ID at the bottom. Tailwind, under 150 lines. Renders as an artifact.",
         "inputMapping": {
           "customerName": "$.run.input.customerName",
           "identity": "$.steps.identity-extractor.outputs.parsed",
@@ -156,7 +156,11 @@
       "id": "finalize",
       "type": "finalize",
       "name": "Finalize",
-      "config": { "summaryFields": ["text"] }
+      "config": {
+        "summaryFields": ["text"],
+        "slackChannel": "#onboarding",
+        "slackTitle": "Onboarding complete: {{input.customerName}}"
+      }
     }
   ],
   "edges": [

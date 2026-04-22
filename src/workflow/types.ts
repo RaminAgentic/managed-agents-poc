@@ -114,6 +114,10 @@ export interface HumanGateNodeConfig {
 /** Configuration specific to finalize nodes */
 export interface FinalizeNodeConfig {
   summaryFields?: string[];
+  /** If set, post a rich Block Kit summary of the whole run here. */
+  slackChannel?: string;
+  /** Headline to include in the Slack summary (supports {{...}}). */
+  slackTitle?: string;
 }
 
 /** Union of all node configs based on type */

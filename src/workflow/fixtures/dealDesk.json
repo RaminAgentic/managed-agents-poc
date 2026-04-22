@@ -39,7 +39,7 @@
       "name": "Reviewer + writer",
       "modelConfig": { "model": "claude-sonnet-4-6" },
       "config": {
-        "instructions": "You are the deal desk reviewer. You'll receive a JSON analysis of a Salesforce opportunity in `analysis`. Do the following:\n\n1. Decide whether this deal warrants CFO approval. Rules:\n   - Discount > 20% → needs approval\n   - Deal > $500k ARR → needs approval\n   - Any policy flag in analysis.flags → needs approval\n   - Otherwise, auto-approve.\n\n2. Post a summary to the #deal-desk Slack channel. Include: opportunity name, ARR, discount %, comps (median + p90), any flags, and your recommended action (approve / needs-cfo / reject). If CFO approval is needed, @-mention the #deal-desk-approvers group and ask for a :white_check_mark: or :x: reaction. Wait up to 5 minutes for a response.\n\n3. Based on the Slack reaction (or auto-approval rule), write a Chatter post back on the Salesforce opportunity with the decision, timestamp, and approver name.\n\n4. Return a short final summary of what happened.",
+        "instructions": "You are the deal desk reviewer. You'll receive a JSON analysis of a Salesforce opportunity in `analysis`. Do the following:\n\n1. Decide whether this deal warrants CFO approval. Rules:\n   - Discount > 20% → needs approval\n   - Deal > $500k ARR → needs approval\n   - Any policy flag in analysis.flags → needs approval\n   - Otherwise, auto-approve.\n\n2. Post a summary to the #deal-desk Slack channel. Include: opportunity name, ARR, discount %, comps (median + p90), any flags, and your recommended action (approve / needs-cfo / reject). If CFO approval is needed, @-mention the #deal-desk-approvers group and ask for a :white_check_mark: or :x: reaction. Wait up to 5 minutes for a response.\n\n3. Based on the Slack reaction (or auto-approval rule), write a Chatter post back on the Salesforce opportunity with the decision, timestamp, and approver name.\n\n4. Return a short final summary of what happened.\n\n5. AFTER your summary text, append a separator `### Visual Artifact` and a single fenced ```jsx block with a default-exported React component that renders a deal review card: opportunity name as title, big ARR number, discount % with color coding (green <=15%, amber 15-25%, red >25%), a comps comparison bar (this deal vs. median vs. p90), the flags as red chips, and the final decision as a prominent badge. Tailwind only, under 150 lines. This will be rendered as an artifact for the user.",
         "inputMapping": {
           "analysis": "$.steps.reader.outputs.parsed"
         },
@@ -59,7 +59,11 @@
       "id": "finalize",
       "type": "finalize",
       "name": "Finalize",
-      "config": { "summaryFields": ["text"] }
+      "config": {
+        "summaryFields": ["text"],
+        "slackChannel": "#deal-desk",
+        "slackTitle": "Deal desk decision: {{input.opportunityId}}"
+      }
     }
   ],
   "edges": [
