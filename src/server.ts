@@ -1,24 +1,26 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import path from "path";
 
 // Trigger API-key validation at startup (fail-fast)
 import "./config/env";
 
-// Initialize SQLite schema (idempotent — safe to call every boot)
+// Initialize SQLite schema (no-op — Prisma owns the schema via migrations)
 import { initializeSchema } from "./db/schema";
 initializeSchema();
 
-// Mark any orphaned "running" runs as failed on restart
-import db from "./db/client";
-const orphanedRuns = db.prepare(
-  `UPDATE workflow_runs SET status = 'failed', completed_at = datetime('now') WHERE status = 'running'`
-).run();
-if (orphanedRuns.changes > 0) {
-  console.log(`[startup] Marked ${orphanedRuns.changes} orphaned run(s) as failed.`);
-}
+// Mark any orphaned "running" runs as failed on restart (async)
+import { markOrphanedRunsFailed } from "./workflow/persistence";
+markOrphanedRunsFailed().then((count) => {
+  if (count > 0) {
+    console.log(`[startup] Marked ${count} orphaned run(s) as failed.`);
+  }
+}).catch((err) => {
+  console.error("[startup] Failed to mark orphaned runs:", err);
+});
 
 import { runOrchestrator } from "./agent/orchestrator";
+import workflowRoutes from "./api/workflowRoutes";
 import runRoutes from "./api/runRoutes";
 
 // In dev, Vite serves the frontend on 5002 and proxies /api to 5001.
@@ -27,8 +29,24 @@ const PORT = process.env.NODE_ENV === "production" ? 5002 : 5001;
 const app = express();
 
 // --- Middleware ---
-app.use(cors());
-app.use(express.json());
+
+// 1. CORS — allow Vite dev server and production origins
+app.use(cors({
+  origin: ["http://localhost:5173", "http://localhost:5002", "http://localhost:5001"],
+  credentials: true,
+}));
+
+// 2. Body parser with 1MB limit
+app.use(express.json({ limit: "1mb" }));
+
+// 3. Request logger — minimal, no morgan needed for POC
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    console.log(`[${req.method}] ${req.path} → ${res.statusCode} (${Date.now() - start}ms)`);
+  });
+  next();
+});
 
 // --- API Routes ---
 
@@ -37,7 +55,10 @@ app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ ok: true });
 });
 
-// --- Workflow Engine Routes (Sprint 8) ---
+// Workflow definition endpoints (POST/GET /workflows)
+app.use("/api", workflowRoutes);
+
+// Run execution endpoints (POST/GET /runs)
 app.use("/api", runRoutes);
 
 /**
@@ -80,6 +101,18 @@ if (process.env.NODE_ENV === "production") {
     res.sendFile(path.join(clientDist, "index.html"));
   });
 }
+
+// --- 404 fallback for /api ---
+app.use("/api", (_req: Request, res: Response) => {
+  res.status(404).json({ error: "Not found" });
+});
+
+// --- Global error handler (MUST have 4 args, MUST be last) ---
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("[error]", err);
+  const status = ((err as unknown as Record<string, unknown>).status as number) ?? 500;
+  res.status(status).json({ error: err.message || "Internal server error" });
+});
 
 // --- Global error handling ---
 process.on("unhandledRejection", (reason) => {

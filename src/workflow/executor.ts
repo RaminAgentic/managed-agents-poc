@@ -18,6 +18,7 @@
  * - Explicit while-loop (not recursion) — flat stack, easy debugging.
  * - maxSteps guard (default 50) prevents infinite loops from cyclic edges.
  * - Context is a plain in-memory object — no proxies, no reactivity.
+ * - All persistence calls are now async (Prisma v2 migration).
  */
 import type { WorkflowSchema, WorkflowNode, RunContext } from "./types";
 import { getNodeHandler } from "./nodeHandlers";
@@ -82,8 +83,8 @@ export async function executeWorkflow(
   let currentStepId: string | null = null;
 
   // Mark the run as running
-  updateRunStatus(runId, "running");
-  logEvent(runId, null, "workflow_started", {
+  await updateRunStatus(runId, "running");
+  await logEvent(runId, null, "workflow_started", {
     workflowId: workflowSchema.id,
     workflowName: workflowSchema.name,
     entryNode: workflowSchema.entryNodeId,
@@ -96,7 +97,7 @@ export async function executeWorkflow(
       stepCount++;
       if (stepCount > MAX_STEPS) {
         const msg = `Workflow exceeded max steps (${MAX_STEPS}). Possible cycle in graph.`;
-        logEvent(runId, currentStepId, "max_steps_exceeded", {
+        await logEvent(runId, currentStepId, "max_steps_exceeded", {
           stepCount,
           lastNodeId: currentNodeId,
         });
@@ -116,8 +117,8 @@ export async function executeWorkflow(
       );
 
       // Create a RunStep record
-      currentStepId = createRunStep(runId, node.id);
-      logEvent(runId, currentStepId, "step_started", {
+      currentStepId = await createRunStep(runId, node.id);
+      await logEvent(runId, currentStepId, "step_started", {
         nodeId: node.id,
         nodeType: node.type,
         nodeName: node.name,
@@ -136,8 +137,8 @@ export async function executeWorkflow(
       ctx.steps[node.id] = result;
 
       // Persist the completed step
-      completeRunStep(currentStepId, result.outputs);
-      logEvent(runId, currentStepId, "step_completed", {
+      await completeRunStep(currentStepId, result.outputs);
+      await logEvent(runId, currentStepId, "step_completed", {
         nodeId: node.id,
         outputKeys: Object.keys(result.outputs),
       });
@@ -163,8 +164,8 @@ export async function executeWorkflow(
     console.warn(
       `[executor] Workflow run ${runId} ended without a finalize node.`
     );
-    updateRunStatus(runId, "completed");
-    logEvent(runId, null, "workflow_completed", {
+    await updateRunStatus(runId, "completed");
+    await logEvent(runId, null, "workflow_completed", {
       note: "Ended without explicit finalize node",
     });
   } catch (error: unknown) {
@@ -177,7 +178,7 @@ export async function executeWorkflow(
     // Fail the current step if one exists
     if (currentStepId) {
       try {
-        failRunStep(currentStepId, error);
+        await failRunStep(currentStepId, error);
       } catch (persistError) {
         console.error("[executor] Failed to persist step failure:", persistError);
       }
@@ -185,8 +186,8 @@ export async function executeWorkflow(
 
     // Mark the run as failed
     try {
-      updateRunStatus(runId, "failed");
-      logEvent(runId, currentStepId, "error", { message, stack });
+      await updateRunStatus(runId, "failed");
+      await logEvent(runId, currentStepId, "error", { message, stack });
     } catch (persistError) {
       console.error("[executor] Failed to persist run failure:", persistError);
     }

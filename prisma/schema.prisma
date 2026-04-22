@@ -1,0 +1,91 @@
+// Prisma schema for Managed Agents POC — workflow execution tracking
+//
+// All workflow definitions, run instances, step executions, events,
+// and approval records are stored in a local SQLite database.
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+/// Workflow definition — the blueprint for a run.
+model Workflow {
+  id        String   @id @default(cuid())
+  name      String
+  schemaJson String  @map("schema_json")
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+  runs      WorkflowRun[]
+
+  @@map("workflows")
+}
+
+/// A single execution of a workflow.
+model WorkflowRun {
+  id          String    @id @default(cuid())
+  workflowId  String    @map("workflow_id")
+  workflow    Workflow   @relation(fields: [workflowId], references: [id])
+  status      String    @default("pending") // pending | running | completed | failed
+  inputJson   String    @default("{}") @map("input_json")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  steps       RunStep[]
+  events      RunEvent[]
+
+  @@index([workflowId])
+  @@map("workflow_runs")
+}
+
+/// An individual step execution within a run.
+model RunStep {
+  id             String    @id @default(cuid())
+  runId          String    @map("run_id")
+  run            WorkflowRun @relation(fields: [runId], references: [id])
+  nodeId         String    @map("node_id")
+  status         String    @default("running") // running | completed | failed | awaiting_approval
+  inputJson      String?   @map("input_json")
+  outputJson     String?   @map("output_json")
+  errorMessage   String?   @map("error_message")
+  errorStack     String?   @map("error_stack")
+  agentSessionId String?   @map("agent_session_id")
+  startedAt      DateTime  @default(now()) @map("started_at")
+  completedAt    DateTime? @map("completed_at")
+  approvals      Approval[]
+
+  @@index([runId])
+  @@map("run_steps")
+}
+
+/// Event log entry (audit trail) for a workflow run.
+model RunEvent {
+  id        String   @id @default(cuid())
+  runId     String   @map("run_id")
+  run       WorkflowRun @relation(fields: [runId], references: [id])
+  stepId    String?  @map("step_id")
+  eventType String   @map("event_type")
+  payload   String   @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([runId])
+  @@map("run_events")
+}
+
+/// Approval record for human-gate steps.
+model Approval {
+  id           String   @id @default(cuid())
+  stepId       String   @map("step_id")
+  step         RunStep  @relation(fields: [stepId], references: [id])
+  slackChannel String?  @map("slack_channel")
+  slackUserId  String?  @map("slack_user_id")
+  decision     String?  // pending | approved | rejected
+  comment      String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("approvals")
+}

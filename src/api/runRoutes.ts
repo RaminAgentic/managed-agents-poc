@@ -1,126 +1,27 @@
 /**
  * Workflow Run API routes.
  *
- * POST /api/workflows            — create a workflow definition
- * GET  /api/workflows            — list all workflows
- * GET  /api/workflows/:id        — get a single workflow
  * POST /api/runs                 — start a workflow run (fire-and-forget)
- * GET  /api/runs/:id             — get run status
+ * GET  /api/runs                 — list recent runs
+ * GET  /api/runs/:id             — get run detail with steps + events
  * GET  /api/runs/:id/steps       — get steps + events for monitoring UI
  */
 import { Router, Request, Response } from "express";
-import crypto from "crypto";
 import type { WorkflowSchema } from "../workflow/types";
-import { validateWorkflowSchema } from "../workflow/validateSchema";
+import { validateWorkflowSchema } from "../workflow/schemaValidator";
 import { executeWorkflow } from "../workflow/executor";
 import {
-  createWorkflow,
   getWorkflow,
-  listWorkflows,
   createWorkflowRun,
   getWorkflowRun,
+  getWorkflowRunWithDetails,
+  listRuns,
   getRunSteps,
   getRunEvents,
-  getRunsByWorkflowId,
+  updateRunStatus,
 } from "../workflow/persistence";
 
 const router = Router();
-
-// ── Workflow CRUD ───────────────────────────────────────────────────
-
-/**
- * POST /api/workflows
- * Body: { name: string, schema: WorkflowSchema }
- */
-router.post("/workflows", (req: Request, res: Response) => {
-  try {
-    const { name, schema } = req.body;
-
-    if (!name || typeof name !== "string") {
-      res.status(400).json({ error: "'name' is required and must be a string" });
-      return;
-    }
-    if (!schema || typeof schema !== "object") {
-      res.status(400).json({ error: "'schema' is required and must be an object" });
-      return;
-    }
-
-    // Validate the workflow schema
-    const validation = validateWorkflowSchema(schema);
-    if (!validation.ok) {
-      res.status(400).json({ error: "Invalid workflow schema", details: validation.errors });
-      return;
-    }
-
-    const id = schema.id || `wf-${crypto.randomUUID().slice(0, 8)}`;
-    const schemaJson = JSON.stringify(schema);
-
-    createWorkflow(id, name, schemaJson);
-    res.status(201).json({ id, name, message: "Workflow created" });
-  } catch (err: unknown) {
-    console.error("[runRoutes] POST /workflows error:", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
-    // Handle duplicate ID
-    if (message.includes("UNIQUE constraint")) {
-      res.status(409).json({ error: "Workflow with this ID already exists" });
-      return;
-    }
-    res.status(500).json({ error: message });
-  }
-});
-
-/**
- * GET /api/workflows
- */
-router.get("/workflows", (_req: Request, res: Response) => {
-  try {
-    const workflows = listWorkflows();
-    res.json({ workflows });
-  } catch (err: unknown) {
-    console.error("[runRoutes] GET /workflows error:", err);
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
-
-/**
- * GET /api/workflows/:id
- */
-router.get("/workflows/:id", (req: Request, res: Response) => {
-  try {
-    const workflow = getWorkflow(req.params.id);
-    if (!workflow) {
-      res.status(404).json({ error: "Workflow not found" });
-      return;
-    }
-    res.json({
-      ...workflow,
-      schema: JSON.parse(workflow.schema_json),
-    });
-  } catch (err: unknown) {
-    console.error("[runRoutes] GET /workflows/:id error:", err);
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
-
-/**
- * GET /api/workflows/:id/runs
- */
-router.get("/workflows/:id/runs", (req: Request, res: Response) => {
-  try {
-    const workflow = getWorkflow(req.params.id);
-    if (!workflow) {
-      res.status(404).json({ error: "Workflow not found" });
-      return;
-    }
-    const runs = getRunsByWorkflowId(req.params.id);
-    res.json({ runs });
-  } catch (err: unknown) {
-    console.error("[runRoutes] GET /workflows/:id/runs error:", err);
-    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
-  }
-});
-
-// ── Run Execution ───────────────────────────────────────────────────
 
 /**
  * POST /api/runs
@@ -129,7 +30,7 @@ router.get("/workflows/:id/runs", (req: Request, res: Response) => {
  * Creates a WorkflowRun record and launches the executor in a
  * fire-and-forget pattern. Returns 202 Accepted immediately.
  */
-router.post("/runs", (req: Request, res: Response) => {
+router.post("/runs", async (req: Request, res: Response) => {
   try {
     const { workflowId, input } = req.body;
 
@@ -139,7 +40,7 @@ router.post("/runs", (req: Request, res: Response) => {
     }
 
     // Load the workflow
-    const workflow = getWorkflow(workflowId);
+    const workflow = await getWorkflow(workflowId);
     if (!workflow) {
       res.status(404).json({ error: "Workflow not found" });
       return;
@@ -148,7 +49,7 @@ router.post("/runs", (req: Request, res: Response) => {
     // Parse and validate the schema
     const schema = JSON.parse(workflow.schema_json) as WorkflowSchema;
     const validation = validateWorkflowSchema(schema);
-    if (!validation.ok) {
+    if (!validation.valid) {
       res.status(400).json({
         error: "Stored workflow schema is invalid",
         details: validation.errors,
@@ -158,7 +59,7 @@ router.post("/runs", (req: Request, res: Response) => {
 
     // Create the run record
     const runInput = input && typeof input === "object" ? input : {};
-    const runId = createWorkflowRun(workflowId, runInput);
+    const runId = await createWorkflowRun(workflowId, runInput);
 
     // Feature gate: check env var
     if (process.env.ENABLE_WORKFLOW_EXECUTOR === "false") {
@@ -172,8 +73,14 @@ router.post("/runs", (req: Request, res: Response) => {
 
     // Fire-and-forget — do NOT await
     // The .catch is non-optional: unhandled rejections crash Node.
-    executeWorkflow(runId, schema, runInput).catch((err) => {
+    executeWorkflow(runId, schema, runInput).catch(async (err) => {
       console.error(`[runRoutes] Unhandled error in run ${runId}:`, err);
+      // Ensure the run is marked as failed even on catastrophic errors
+      try {
+        await updateRunStatus(runId, "failed");
+      } catch (persistErr) {
+        console.error(`[runRoutes] Failed to mark run ${runId} as failed:`, persistErr);
+      }
     });
 
     res.status(202).json({ runId, status: "pending" });
@@ -184,17 +91,43 @@ router.post("/runs", (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/runs/:id
- * Returns the run record with status.
+ * GET /api/runs
+ * Returns: [{ id, workflowId, status, createdAt }] — most recent 50.
  */
-router.get("/runs/:id", (req: Request, res: Response) => {
+router.get("/runs", async (_req: Request, res: Response) => {
   try {
-    const run = getWorkflowRun(req.params.id);
-    if (!run) {
+    const runs = await listRuns(50);
+    res.json({
+      runs: runs.map((r) => ({
+        id: r.id,
+        workflowId: r.workflow_id,
+        status: r.status,
+        createdAt: r.created_at,
+      })),
+    });
+  } catch (err: unknown) {
+    console.error("[runRoutes] GET /runs error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/**
+ * GET /api/runs/:id
+ * Returns: { ...run, steps: [...], events: [...] }
+ * Events ordered by createdAt ASC, steps ordered by startedAt ASC.
+ */
+router.get("/runs/:id", async (req: Request, res: Response) => {
+  try {
+    const detail = await getWorkflowRunWithDetails(req.params.id);
+    if (!detail) {
       res.status(404).json({ error: "Run not found" });
       return;
     }
-    res.json(run);
+    res.json({
+      ...detail.run,
+      steps: detail.steps,
+      events: detail.events,
+    });
   } catch (err: unknown) {
     console.error("[runRoutes] GET /runs/:id error:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
@@ -203,18 +136,18 @@ router.get("/runs/:id", (req: Request, res: Response) => {
 
 /**
  * GET /api/runs/:id/steps
- * Returns all RunSteps and RunEvents for monitoring UI.
+ * Returns: { steps: [...], events: [...] } for the monitoring UI.
  */
-router.get("/runs/:id/steps", (req: Request, res: Response) => {
+router.get("/runs/:id/steps", async (req: Request, res: Response) => {
   try {
-    const run = getWorkflowRun(req.params.id);
+    const run = await getWorkflowRun(req.params.id);
     if (!run) {
       res.status(404).json({ error: "Run not found" });
       return;
     }
 
-    const steps = getRunSteps(req.params.id);
-    const events = getRunEvents(req.params.id);
+    const steps = await getRunSteps(req.params.id);
+    const events = await getRunEvents(req.params.id);
 
     res.json({ steps, events });
   } catch (err: unknown) {

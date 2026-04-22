@@ -107,7 +107,7 @@ export async function runAgentNode(
   // Step 7: Store agent session ID
   const agentSessionId = response.id;
   if (agentSessionId) {
-    setStepAgentSession(opts.stepId, agentSessionId);
+    await setStepAgentSession(opts.stepId, agentSessionId);
   }
 
   console.log(`[agentNodeHandler] Response ID: ${agentSessionId}, stop_reason: ${response.stop_reason}`);

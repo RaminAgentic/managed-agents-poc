@@ -2,7 +2,7 @@
   "sessionId": "session_1776856705238",
   "sessionUrl": "http://localhost:5002",
   "sessionTitle": "Unknown",
-  "lastUpdated": "2026-04-22T12:36:49.123Z",
+  "lastUpdated": "2026-04-22T12:52:38.517Z",
   "logs": [
     {
       "level": "warning",
@@ -472,6 +472,223 @@
       "timestamp": "2026-04-22T12:36:49.123Z",
       "line": 906,
       "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T12:37:13.946Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T12:37:13.947Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T12:37:13.956Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T12:37:13.957Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T12:37:13.998Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=67cf01c9"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T12:37:13.999Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=67cf01c9"
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:37:14.078Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:37:14.078Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:37:14.079Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:37:14.079Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T12:52:38.377Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T12:52:38.378Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T12:52:38.378Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T12:52:38.460Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T12:52:38.460Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T12:52:38.460Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T12:52:38.462Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=67cf01c9"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T12:52:38.463Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=67cf01c9"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T12:52:38.463Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=67cf01c9"
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.514Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.514Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.515Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.516Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.516Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.516Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.516Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.516Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.516Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.517Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.517Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T12:52:38.517Z",
+      "line": 8,
+      "sourceId": ""
     }
   ]
 }
