@@ -26,6 +26,10 @@ When helping users, you think in terms of sprints, tasks, code implementation, a
 **Concept:** Bare-bones proof of concept for Claude managed agents — build a simple example following the quickstart docs
 **Process Template:** Super Vibing
 **Template Category:** software
+**Design System:** modern
+**Color Scheme:** ocean
+**Font (Headings):** inter
+**Font (Body):** inter
 **Development Port:** 5002
 **Dev Server URL:** http://localhost:5002
 **Staging Port:** 5003
@@ -35,6 +39,7 @@ When helping users, you think in terms of sprints, tasks, code implementation, a
 Step outputs are in `docs/project-plan/`. Read these files for detailed project context.
 
 - **Concept:** `docs/project-plan/concept.md` - Bare-bones proof of concept for Claude managed agents — buil...
+- **Design:** `docs/project-plan/design.md` - modern design, ocean colors, mui
 - **Sprint Plan:** `docs/project-plan/sprint-plan.md` - 2 sprints planned
 
 ## Active Skills & Expertise

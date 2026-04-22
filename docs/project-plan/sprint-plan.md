@@ -6,11 +6,11 @@
 Initialize the project (Node.js/TypeScript), install the Anthropic SDK, configure environment variables for the API key, and create a minimal data layer with hardcoded sample prompts/tools and a simple conversation state module to feed the managed agent.
 
 **Tasks:**
-- Initialize Node.js/TypeScript project with Anthropic SDK (pending)
-- Configure environment variables and Anthropic client module (pending)
-- Create hardcoded sample prompts and system instructions (pending)
-- Define sample tool schemas for the managed agent (pending)
-- Implement conversation state module (pending)
+- Initialize Node.js/TypeScript project with Anthropic SDK (completed)
+- Configure environment variables and Anthropic client module (completed)
+- Create hardcoded sample prompts and system instructions (completed)
+- Define sample tool schemas for the managed agent (completed)
+- Implement conversation state module (completed)
 
 ## Sprint 2: Managed Agent Core Loop & CLI Interface [planned]
 Implement the bare-bones managed agent following the quickstart docs — wire up a single agent invocation with one example tool, run the agent loop end-to-end, and expose it through a simple CLI that accepts a user prompt and prints the agent response.
