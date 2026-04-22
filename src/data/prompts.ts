@@ -9,5 +9,6 @@ export const SYSTEM_PROMPT: string =
 export const SAMPLE_USER_PROMPTS: readonly string[] = [
   "What's the weather in San Francisco right now?",
   "What's the weather in Paris in Celsius?",
-  "Tell me a fun fact about octopuses.",
+  "Explain how managed agents work in one paragraph.",
+  "Summarize the difference between tool-use and orchestration in LLM agents.",
 ] as const;

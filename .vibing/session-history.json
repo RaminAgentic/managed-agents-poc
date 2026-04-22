@@ -13,11 +13,29 @@
     {
       "sessionId": "session_sprint_1776847582318_2_1776848263757",
       "sprintId": "sprint_1776847582318_2",
-      "status": "running",
+      "status": "completed",
       "startedAt": "2026-04-22T08:57:43.757Z",
+      "tasksCompleted": 0,
+      "totalTasks": 4,
+      "endedAt": "2026-04-22T09:03:42.853Z"
+    },
+    {
+      "sessionId": "session_sprint_1776848679001_wpxntkzha_1776848680571",
+      "sprintId": "sprint_1776848679001_wpxntkzha",
+      "status": "completed",
+      "startedAt": "2026-04-22T09:04:40.571Z",
+      "tasksCompleted": 0,
+      "totalTasks": 4,
+      "endedAt": "2026-04-22T09:09:41.998Z"
+    },
+    {
+      "sessionId": "session_sprint_1776848975734_pof4ndyfo_1776848977308",
+      "sprintId": "sprint_1776848975734_pof4ndyfo",
+      "status": "running",
+      "startedAt": "2026-04-22T09:09:37.308Z",
       "tasksCompleted": 0,
       "totalTasks": 4
     }
   ],
-  "lastUpdated": "2026-04-22T08:57:43.782Z"
+  "lastUpdated": "2026-04-22T09:09:42.037Z"
 }
