@@ -4,9 +4,9 @@
   "concept": "Bare-bones proof of concept for Claude managed agents — build a simple example following the quickstart docs",
   "path": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
   "projectPath": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
-  "status": "completed",
+  "status": "development",
   "createdAt": "2026-04-22T08:39:52.783Z",
-  "updatedAt": "2026-04-22T15:05:45.095Z",
+  "updatedAt": "2026-04-22T15:08:07.528Z",
   "version": "1.0.0",
   "useCaseNodes": [],
   "requirementNodes": [],
@@ -762,10 +762,72 @@
           "status": "completed",
           "priority": "low"
         }
+      ],
+      "codeReview": {
+        "summary": "Found 1 issue: 0 critical, 1 high, 0 medium",
+        "totalIssues": 1,
+        "issuesByPriority": {
+          "critical": 0,
+          "high": 1,
+          "medium": 0,
+          "low": 0
+        },
+        "issueIds": [
+          "issue_review_1776870487231_0"
+        ],
+        "reviewerModel": "haiku",
+        "noIssuesFound": false,
+        "reviewedAt": "2026-04-22T15:08:07.349Z"
+      }
+    },
+    {
+      "id": "fix-sprint_1776869528608_mrd4lnq9h-1776870487453",
+      "name": "Fix: Sprint 11: MCP Server — Claude Code Integration",
+      "description": "Auto-created to address 1 critical/high priority issue(s) from code review",
+      "priority": "high",
+      "status": "pending",
+      "individualTasks": [
+        {
+          "id": "fix-task-1776870487528-0",
+          "title": "Fix: MCP getRunStatus reads wrong event field names from server response",
+          "description": "The MCP HTTP client (mcp/src/client.ts lines 126-131) defines RunDetail.events with fields 'type' and 'payload_json', but the server's GET /api/runs/:id endpoint returns events with fields 'event_type' and 'payload' (from persistence.ts toRunEventRow). In getRunStatus.ts (lines 27-33), the tool reads evt.payload_json (undefined) and evt.type (undefined), causing every event to render as '[undefined] ' instead of showing actual event types and payloads. The web client (client/src/types.ts RunEvent) correctly uses 'event_type' and 'payload', so only the MCP tool is affected.\n\nFile: mcp/src/client.ts",
+          "status": "pending",
+          "priority": "high",
+          "fromIssue": "issue_review_1776870487231_0",
+          "relevantFiles": [
+            {
+              "path": "mcp/src/client.ts",
+              "action": "modify"
+            }
+          ]
+        }
       ]
     }
   ],
   "issueNodes": [
+    {
+      "id": "issue_review_1776870487231_0",
+      "type": "issue",
+      "title": "MCP getRunStatus reads wrong event field names from server response",
+      "description": "The MCP HTTP client (mcp/src/client.ts lines 126-131) defines RunDetail.events with fields 'type' and 'payload_json', but the server's GET /api/runs/:id endpoint returns events with fields 'event_type' and 'payload' (from persistence.ts toRunEventRow). In getRunStatus.ts (lines 27-33), the tool reads evt.payload_json (undefined) and evt.type (undefined), causing every event to render as '[undefined] ' instead of showing actual event types and payloads. The web client (client/src/types.ts RunEvent) correctly uses 'event_type' and 'payload', so only the MCP tool is affected.\n\nFile: mcp/src/client.ts",
+      "issueType": "bug",
+      "priority": "high",
+      "status": "open",
+      "estimatedEffort": "medium",
+      "createdAt": "2026-04-22T15:08:07.232Z",
+      "updatedAt": "2026-04-22T15:08:07.232Z",
+      "isEditing": false,
+      "isDirty": false,
+      "relatedRequirements": [],
+      "relatedUseCases": [],
+      "labels": [
+        "code-review",
+        "Sprint 11: MCP Server — Claude Code Integration"
+      ],
+      "reportedBy": "Code Reviewer (Haiku)",
+      "version": 1,
+      "images": []
+    },
     {
       "id": "issue_review_1776865439727_1",
       "type": "issue",

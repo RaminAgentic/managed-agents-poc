@@ -1,6 +1,6 @@
 # Sprint Plan
 
-11 sprints planned
+12 sprints planned
 
 ## Sprint 1: Project Scaffolding & Claude SDK Setup [planned]
 Initialize the project (Node.js/TypeScript), install the Anthropic SDK, configure environment variables for the API key, and create a minimal data layer with hardcoded sample prompts/tools and a simple conversation state module to feed the managed agent.
@@ -95,3 +95,13 @@ Auto-created to address 1 critical/high priority issue(s) from code review
 
 ## Sprint 11: MCP Server — Claude Code Integration [planned]
 Build a standalone MCP server that connects Claude Code to the flow manager web app. Exposes tools for listing workflows, starting runs, checking run status, and optionally creating workflows. Registers via stdio with Claude Code using `claude mcp add`.
+
+**Tasks:**
+- Scaffold mcp/ package (completed)
+- Add GET /api/workflows endpoint to backend (completed)
+- Implement MCP server with core tools (completed)
+- Add list_runs and create_workflow tools (completed)
+- Add MCP setup instructions to README (completed)
+
+## Fix: Sprint 11: MCP Server — Claude Code Integration [planned]
+Auto-created to address 1 critical/high priority issue(s) from code review

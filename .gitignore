@@ -51,3 +51,4 @@ client/dist/
 # MCP server build artifacts
 mcp/node_modules/
 mcp/dist/
+.vercel
