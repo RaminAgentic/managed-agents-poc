@@ -1,0 +1,76 @@
+{
+  "id": "proj_1776847192658_clz2mby18",
+  "name": "Managed Agents POC",
+  "concept": "Bare-bones proof of concept for Claude managed agents — build a simple example following the quickstart docs",
+  "path": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
+  "projectPath": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
+  "status": "concept",
+  "deploymentPort": 5002,
+  "stagePort": 5003,
+  "targetUsers": [],
+  "businessGoals": [],
+  "projectType": "prototype",
+  "currentWizardStep": 0,
+  "useCaseNodes": [],
+  "requirementNodes": [],
+  "architectureNodes": [],
+  "sprintNodes": [],
+  "issueNodes": [],
+  "processFlow": {
+    "currentPhase": "concept",
+    "completedPhases": [],
+    "nodeCompletionStats": {
+      "concept": {
+        "total": 1,
+        "completed": 0,
+        "inProgress": 1,
+        "pending": 0
+      },
+      "useCase": {
+        "total": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      },
+      "requirement": {
+        "total": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      },
+      "architecture": {
+        "total": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      },
+      "sprint": {
+        "total": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      }
+    },
+    "flowValid": true,
+    "validationErrors": [],
+    "lastUserInteraction": "2026-04-22T08:39:52.658Z",
+    "userFeedbackPending": false
+  },
+  "nodeHistory": [
+    {
+      "id": "hist_1776847192662",
+      "timestamp": "2026-04-22T08:39:52.658Z",
+      "action": "created",
+      "nodeId": "proj_1776847192658_clz2mby18",
+      "nodeType": "project",
+      "oldValue": null,
+      "newValue": "Bare-bones proof of concept for Claude managed agents — build a simple example following the quickstart docs",
+      "cascadingChanges": [],
+      "userInitiated": true,
+      "userReasoning": "Project created by user"
+    }
+  ],
+  "createdAt": "2026-04-22T08:39:52.658Z",
+  "updatedAt": "2026-04-22T08:39:52.658Z",
+  "version": "1.0.0"
+}
