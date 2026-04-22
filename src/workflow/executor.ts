@@ -74,6 +74,7 @@ export async function executeWorkflow(
 ): Promise<void> {
   // Build the runtime context
   const ctx: RunContext = {
+    workflowId: workflowSchema.id,
     run: { id: runId, input },
     steps: {},
   };

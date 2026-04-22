@@ -22,12 +22,39 @@ export interface InputNodeConfig {
   requiredFields?: string[];
 }
 
+/** A remote MCP server the agent can use during its session. */
+export interface AgentMcpServer {
+  name: string;
+  type: "url";
+  url: string;
+}
+
+/** A tool entry passed to `beta.agents.create` — structural pass-through. */
+export interface AgentTool {
+  type: string;
+  mcp_server_name?: string;
+  default_config?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/** An Anthropic-authored skill (e.g., docx, xlsx). */
+export interface AgentSkill {
+  type: "anthropic";
+  skill_id: string;
+}
+
 /** Configuration specific to agent nodes */
 export interface AgentNodeConfig {
   instructions: string;
   inputMapping?: Record<string, string>;
   timeoutSeconds?: number;
   outputFormat?: "text" | "json";
+  /** Remote MCP servers to attach to this managed agent. */
+  mcpServers?: AgentMcpServer[];
+  /** Toolsets for the managed agent — pass-through to beta.agents.create. */
+  tools?: AgentTool[];
+  /** Anthropic-authored skills (docx, xlsx, etc.). */
+  skills?: AgentSkill[];
 }
 
 /** Configuration specific to human gate nodes */
@@ -86,6 +113,7 @@ export interface StepResult {
 
 /** Runtime context threaded through the executor */
 export interface RunContext {
+  workflowId: string;
   run: {
     id: string;
     input: Record<string, unknown>;

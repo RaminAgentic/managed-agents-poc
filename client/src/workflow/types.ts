@@ -18,12 +18,33 @@ export interface InputNodeConfig {
   __editorPosition?: { x: number; y: number };
 }
 
+export interface AgentMcpServer {
+  name: string;
+  type: "url";
+  url: string;
+}
+
+export interface AgentTool {
+  type: string;
+  mcp_server_name?: string;
+  default_config?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface AgentSkill {
+  type: "anthropic";
+  skill_id: string;
+}
+
 export interface AgentNodeConfig {
   instructions: string;
   agentRef?: string;
   inputMapping?: Record<string, string>;
   timeoutSeconds?: number;
   outputFormat?: "text" | "json";
+  mcpServers?: AgentMcpServer[];
+  tools?: AgentTool[];
+  skills?: AgentSkill[];
   __editorPosition?: { x: number; y: number };
 }
 

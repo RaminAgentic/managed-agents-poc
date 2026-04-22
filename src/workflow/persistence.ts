@@ -64,6 +64,9 @@ export interface RunStepRow {
   error_message: string | null;
   error_stack: string | null;
   agent_session_id: string | null;
+  agent_id: string | null;
+  agent_version: number | null;
+  anthropic_agent_id: string | null;
   started_at: string;
   completed_at: string | null;
 }
@@ -127,8 +130,10 @@ function toRunStepRow(s: {
   errorMessage: string | null;
   errorStack: string | null;
   agentSessionId: string | null;
+  agentId: string | null;
   startedAt: Date;
   completedAt: Date | null;
+  agent?: { version: number; anthropicAgentId: string } | null;
 }): RunStepRow {
   return {
     id: s.id,
@@ -140,6 +145,9 @@ function toRunStepRow(s: {
     error_message: s.errorMessage,
     error_stack: s.errorStack,
     agent_session_id: s.agentSessionId,
+    agent_id: s.agentId,
+    agent_version: s.agent?.version ?? null,
+    anthropic_agent_id: s.agent?.anthropicAgentId ?? null,
     started_at: s.startedAt.toISOString(),
     completed_at: s.completedAt?.toISOString() ?? null,
   };
@@ -211,6 +219,16 @@ export async function setStepAgentSession(stepId: string, sessionId: string): Pr
   await prisma.runStep.update({
     where: { id: stepId },
     data: { agentSessionId: sessionId },
+  });
+}
+
+/**
+ * Bind a RunStep to the Agent row that executed it (for audit / replay).
+ */
+export async function setStepAgent(stepId: string, agentId: string): Promise<void> {
+  await prisma.runStep.update({
+    where: { id: stepId },
+    data: { agentId },
   });
 }
 
@@ -350,7 +368,12 @@ export async function getWorkflowRunWithDetails(id: string): Promise<{
     where: { id },
     include: {
       workflow: { select: { name: true, schemaJson: true } },
-      steps: { orderBy: { startedAt: "asc" } },
+      steps: {
+        orderBy: { startedAt: "asc" },
+        include: {
+          agent: { select: { version: true, anthropicAgentId: true } },
+        },
+      },
       events: { orderBy: { createdAt: "asc" } },
     },
   });
@@ -400,6 +423,9 @@ export async function getRunSteps(runId: string): Promise<RunStepRow[]> {
   const rows = await prisma.runStep.findMany({
     where: { runId },
     orderBy: { startedAt: "asc" },
+    include: {
+      agent: { select: { version: true, anthropicAgentId: true } },
+    },
   });
   return rows.map(toRunStepRow);
 }

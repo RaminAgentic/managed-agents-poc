@@ -1,0 +1,51 @@
+{
+  "id": "wf-tps-report",
+  "name": "TPS Report",
+  "version": "1.0",
+  "entryNodeId": "input",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "input",
+      "name": "Period",
+      "config": {
+        "requiredFields": ["period"]
+      }
+    },
+    {
+      "id": "tps",
+      "type": "agent",
+      "name": "TPS report writer",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "You are the TPS Report Officer. It is the most important job in the company. Given a reporting period, do the following:\n\n1. Pull this period's pipeline movement from Salesforce: opportunities created, stage-advanced, closed-won, closed-lost. Include totals and deltas vs. the previous period.\n2. Produce a Word document (.docx) titled 'TPS_Report_<period>.docx' with these sections, in this exact order:\n   - **COVER SHEET** (include the phrase 'NEW COVER SHEET — Revision 2026' prominently at the top; this is MANDATORY per corporate policy)\n   - **Executive Summary** (3 bullets, no more)\n   - **Pipeline Movement** (a small table with the Salesforce numbers)\n   - **Red Flags** (anything that slipped or closed-lost with reasons)\n   - **Signatures Block** (signature lines for: VP Sales, CFO, VP Revenue Ops)\n3. Post the document link to the #tps-reports Slack channel. DM each Sales manager (look up members of #sales-managers) asking them to confirm they used the new cover sheet. Include the phrase 'Yeeeeah, if you could just confirm the cover sheet, that would be greeeat.' in each DM.\n4. Return a short final summary: doc link, managers DMed, and how many have confirmed so far.\n\nTone: formally absurd. Corporate. Imagine it's 1999.",
+        "inputMapping": {
+          "period": "$.run.input.period"
+        },
+        "timeoutSeconds": 600,
+        "mcpServers": [
+          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" },
+          { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",      "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ],
+        "skills": [
+          { "type": "anthropic", "skill_id": "docx" }
+        ]
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "name": "Finalize",
+      "config": { "summaryFields": ["text"] }
+    }
+  ],
+  "edges": [
+    { "id": "e-in-tps", "source": "input", "target": "tps"      },
+    { "id": "e-tps-fi", "source": "tps",   "target": "finalize" }
+  ]
+}

@@ -53,6 +53,9 @@ export interface RunStep {
   error_message: string | null;
   error_stack: string | null;
   agent_session_id: string | null;
+  agent_id: string | null;
+  agent_version: number | null;
+  anthropic_agent_id: string | null;
   started_at: string;
   completed_at: string | null;
 }

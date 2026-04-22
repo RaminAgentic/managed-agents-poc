@@ -36,8 +36,39 @@ model Workflow {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @map("updated_at")
   runs      WorkflowRun[]
+  agents    Agent[]
 
   @@map("workflows")
+}
+
+/// Managed-agent version history for an agent node in a workflow.
+///
+/// Append-only: every distinct config that has ever existed for a given
+/// (workflow, node) pair gets its own row. This preserves the audit trail
+/// and lets us reconstruct exactly which agent configuration executed any
+/// given step, even after the workflow has been edited many times.
+///
+/// Dedupe: if a user edits a node and then reverts to a prior configuration,
+/// the existing Agent row is reused (via the @unique on configHash) rather
+/// than creating a second row — and the prior row is "un-superseded" by
+/// setting supersededAt = NULL.
+model Agent {
+  id                String    @id @default(cuid())
+  workflowId        String    @map("workflow_id")
+  workflow          Workflow  @relation(fields: [workflowId], references: [id])
+  nodeId            String    @map("node_id")
+  version           Int                                           // 1, 2, 3... per (workflowId, nodeId)
+  configHash        String    @map("config_hash")                 // sha256 of normalized config
+  configJson        String    @map("config_json")                 // full snapshot
+  anthropicAgentId  String    @map("anthropic_agent_id")          // returned from beta.agents.create
+  createdAt         DateTime  @default(now()) @map("created_at")
+  supersededAt      DateTime? @map("superseded_at")               // NULL = current active version
+  runSteps          RunStep[]
+
+  @@unique([workflowId, nodeId, version])
+  @@unique([workflowId, nodeId, configHash])
+  @@index([workflowId])
+  @@map("agents")
 }
 
 /// A single execution of a workflow.
@@ -69,11 +100,14 @@ model RunStep {
   errorMessage   String?   @map("error_message")
   errorStack     String?   @map("error_stack")
   agentSessionId String?   @map("agent_session_id")
+  agentId        String?   @map("agent_id")                      // FK to Agent row that executed this step
+  agent          Agent?    @relation(fields: [agentId], references: [id])
   startedAt      DateTime  @default(now()) @map("started_at")
   completedAt    DateTime? @map("completed_at")
   approvals      Approval[]
 
   @@index([runId])
+  @@index([agentId])
   @@map("run_steps")
 }
 

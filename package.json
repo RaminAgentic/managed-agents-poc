@@ -17,6 +17,7 @@
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
+    "seed:demos": "ts-node --transpile-only src/scripts/seedDemoWorkflows.ts",
     "postinstall": "prisma generate"
   },
   "keywords": [],

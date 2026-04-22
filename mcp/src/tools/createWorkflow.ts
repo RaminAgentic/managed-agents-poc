@@ -13,17 +13,54 @@
 import { z } from "zod";
 import { createWorkflow } from "../client.js";
 
+const AGENT_NODE_GUIDE = `
+Each workflow node is one of:
+  - input:      { id, type: 'input', name, config: { requiredFields?: string[] } }
+  - agent:      { id, type: 'agent', name, config: <AgentNodeConfig>, modelConfig?: { model?, effort? } }
+  - human_gate: { id, type: 'human_gate', name, config: { channel, messageTemplate, decisionValues: string[] } }
+  - finalize:   { id, type: 'finalize', name, config: { summaryFields?: string[] } }
+
+AgentNodeConfig shape (agents are Managed Agents — configured once here, executed per run):
+  {
+    instructions: string,
+    inputMapping?: { [varName]: "$.run.input.<field>" | "$.steps.<nodeId>.outputs.<field>" },
+    timeoutSeconds?: number,
+    outputFormat?: "text" | "json",
+    mcpServers?: [{ name, type: "url", url }],
+    tools?: [
+      { type: "agent_toolset_20260401" },
+      { type: "mcp_toolset", mcp_server_name: "<name from mcpServers>",
+        default_config: { permission_policy: { type: "always_allow" } } }
+    ],
+    skills?: [{ type: "anthropic", skill_id: "docx" }]
+  }
+
+Known remote MCP servers (use these exact URLs):
+  - Slack:      https://mcp.slack.com/mcp
+  - Salesforce: https://mcp.salesforce.com/mcp
+  - Linear:     https://mcp.linear.app/mcp
+  - Sentry:     https://mcp.sentry.dev/mcp
+  - Notion:     https://mcp.notion.com/mcp
+  - GitHub:     https://api.githubcopilot.com/mcp/
+  - Atlassian:  https://mcp.atlassian.com/v1/sse
+
+Known Anthropic skills: "docx", "xlsx", "pdf", "pptx".
+
+Rules:
+- Exactly one finalize node per workflow.
+- Edges: { from: <nodeId>, to: <nodeId> }.
+- Agent instructions should be detailed system prompts.
+`.trim();
+
 export const createWorkflowSchema = z.object({
   name: z.string().min(1).describe("Name of the workflow"),
   nodes: z
     .array(z.record(z.unknown()))
-    .describe(
-      "Array of workflow node objects. Each node needs: { id: string, type: 'input'|'agent'|'human_gate'|'finalize', name: string }. Agent nodes also need: { config: { instructions: string } }. Must include exactly one 'finalize' node."
-    ),
+    .describe(`Array of workflow node objects.\n\n${AGENT_NODE_GUIDE}`),
   edges: z
     .array(z.record(z.unknown()))
     .describe(
-      "Array of workflow edge objects. Each edge needs: { from: string, to: string } (node IDs)."
+      "Array of workflow edges: [{ from: string, to: string }, ...]. Both values are node IDs."
     ),
   entryNodeId: z
     .string()

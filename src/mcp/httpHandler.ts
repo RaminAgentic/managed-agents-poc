@@ -43,17 +43,76 @@ const getRunStatusSchema = z.object({
 
 const listRunsSchema = z.object({});
 
+const AGENT_NODE_GUIDE = `
+Each workflow node is one of:
+  - input:      { id, type: 'input', name, config: { requiredFields?: string[] } }
+  - agent:      { id, type: 'agent', name, config: <AgentNodeConfig>, modelConfig?: { model?, effort? } }
+  - human_gate: { id, type: 'human_gate', name, config: { channel, messageTemplate, decisionValues: string[] } }
+  - finalize:   { id, type: 'finalize', name, config: { summaryFields?: string[] } }
+
+AgentNodeConfig shape (agents are Managed Agents — configured once here, executed per run):
+  {
+    instructions: string,          // system prompt for the managed agent
+    inputMapping?: { [varName]: "$.run.input.<field>" | "$.steps.<nodeId>.outputs.<field>" },
+    timeoutSeconds?: number,       // default 300
+    outputFormat?: "text" | "json",
+    mcpServers?: [{ name, type: "url", url }],   // remote MCP servers the agent can use
+    tools?: [                                    // pass-through to beta.agents.create
+      { type: "agent_toolset_20260401" },
+      { type: "mcp_toolset", mcp_server_name: "<name from mcpServers>",
+        default_config: { permission_policy: { type: "always_allow" } } }
+    ],
+    skills?: [{ type: "anthropic", skill_id: "docx" }]   // Anthropic-authored skills
+  }
+
+Known remote MCP servers you can reference (use these exact URLs):
+  - Slack:      https://mcp.slack.com/mcp
+  - Salesforce: https://mcp.salesforce.com/mcp
+  - Linear:     https://mcp.linear.app/mcp
+  - Sentry:     https://mcp.sentry.dev/mcp
+  - Notion:     https://mcp.notion.com/mcp
+  - GitHub:     https://api.githubcopilot.com/mcp/
+  - Atlassian (Jira/Confluence): https://mcp.atlassian.com/v1/sse
+
+Known Anthropic skills: "docx" (Word documents), "xlsx" (spreadsheets), "pdf", "pptx".
+
+Example agent node (a Slack + Salesforce deal-desk reviewer):
+{
+  "id": "review",
+  "type": "agent",
+  "name": "Deal desk reviewer",
+  "modelConfig": { "model": "claude-sonnet-4-6" },
+  "config": {
+    "instructions": "You review deals against pricing policy. Read the opportunity, compare discount to our comps, then post a summary with approve/reject buttons to #deal-desk in Slack. Wait for a reaction, then write the decision back to the opportunity as a Chatter post.",
+    "mcpServers": [
+      { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" },
+      { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" }
+    ],
+    "tools": [
+      { "type": "agent_toolset_20260401" },
+      { "type": "mcp_toolset", "mcp_server_name": "salesforce",
+        "default_config": { "permission_policy": { "type": "always_allow" } } },
+      { "type": "mcp_toolset", "mcp_server_name": "slack",
+        "default_config": { "permission_policy": { "type": "always_allow" } } }
+    ]
+  }
+}
+
+Rules:
+- Every workflow must have exactly one finalize node.
+- Use edges of the form { from: <nodeId>, to: <nodeId> } to wire nodes together.
+- An agent node's instructions should be full system prompts — detailed, step-by-step, specific about what to post where.
+`.trim();
+
 const createWorkflowSchema = z.object({
   name: z.string().min(1).describe("Name of the workflow"),
   nodes: z
     .array(z.record(z.unknown()))
-    .describe(
-      "Array of workflow node objects. Each node needs: { id: string, type: 'input'|'agent'|'human_gate'|'finalize', name: string }. Agent nodes also need: { config: { instructions: string } }. Must include exactly one 'finalize' node."
-    ),
+    .describe(`Array of workflow node objects.\n\n${AGENT_NODE_GUIDE}`),
   edges: z
     .array(z.record(z.unknown()))
     .describe(
-      "Array of workflow edge objects. Each edge needs: { from: string, to: string } (node IDs)."
+      "Array of workflow edges: [{ from: string, to: string }, ...]. Both values are node IDs."
     ),
   entryNodeId: z
     .string()

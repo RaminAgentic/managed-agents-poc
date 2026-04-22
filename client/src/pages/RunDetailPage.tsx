@@ -195,6 +195,16 @@ export default function RunDetailPage() {
                         color={NODE_TYPE_COLOR[nodeType] ?? "default"}
                         sx={{ fontSize: "0.7rem", height: 20 }}
                       />
+                      {step.agent_version != null && (
+                        <Chip
+                          label={`agent v${step.agent_version}`}
+                          size="small"
+                          variant="filled"
+                          color="secondary"
+                          title={step.anthropic_agent_id ?? undefined}
+                          sx={{ fontSize: "0.7rem", height: 20 }}
+                        />
+                      )}
                       {step.completed_at && step.started_at && (
                         <Typography variant="caption" color="text.secondary">
                           {formatDuration(step.started_at, step.completed_at)}
@@ -220,6 +230,35 @@ export default function RunDetailPage() {
                           </Typography>
                         )}
                       </Box>
+
+                      {/* Managed-agent provenance */}
+                      {(step.agent_version != null ||
+                        step.anthropic_agent_id ||
+                        step.agent_session_id) && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 0.25,
+                            fontFamily: "monospace",
+                            fontSize: "0.75rem",
+                            color: "text.secondary",
+                            bgcolor: "action.hover",
+                            borderRadius: 1,
+                            p: 1,
+                          }}
+                        >
+                          {step.agent_version != null && (
+                            <span>agent version: v{step.agent_version}</span>
+                          )}
+                          {step.anthropic_agent_id && (
+                            <span>anthropic agent id: {step.anthropic_agent_id}</span>
+                          )}
+                          {step.agent_session_id && (
+                            <span>session id: {step.agent_session_id}</span>
+                          )}
+                        </Box>
+                      )}
 
                       {/* Input JSON */}
                       {step.input_json && (

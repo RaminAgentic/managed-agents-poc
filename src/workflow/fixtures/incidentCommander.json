@@ -1,0 +1,52 @@
+{
+  "id": "wf-incident-commander",
+  "name": "Incident Commander",
+  "version": "1.0",
+  "entryNodeId": "input",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "input",
+      "name": "Alert",
+      "config": {
+        "requiredFields": ["sentryIssueId"]
+      }
+    },
+    {
+      "id": "commander",
+      "type": "agent",
+      "name": "Incident commander",
+      "modelConfig": { "model": "claude-opus-4-6" },
+      "config": {
+        "instructions": "You are an on-call incident commander. You will be given a Sentry issue ID. Do the following:\n\n1. Pull the full event payload, stack trace, release tag, and affected-user count from Sentry.\n2. Search the linked GitHub repo for the top frame's file path and any commits in the last 72 hours that touched it.\n3. Open a Linear incident ticket with: severity, suspected blast radius, top suspect commit (if any), and your rollback recommendation.\n4. Post a threaded status to the incident Slack channel (#incidents): what broke, who's looking, ETA for next update. Link the Linear ticket.\n5. Be decisive: if you're more than 70% confident the cause is a specific deploy, say so and recommend the revert explicitly.\n\nReturn a short final summary with links to the Linear ticket and Slack thread.",
+        "inputMapping": {
+          "sentryIssueId": "$.run.input.sentryIssueId"
+        },
+        "timeoutSeconds": 600,
+        "mcpServers": [
+          { "name": "sentry", "type": "url", "url": "https://mcp.sentry.dev/mcp" },
+          { "name": "linear", "type": "url", "url": "https://mcp.linear.app/mcp" },
+          { "name": "slack",  "type": "url", "url": "https://mcp.slack.com/mcp" },
+          { "name": "github", "type": "url", "url": "https://api.githubcopilot.com/mcp/" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "sentry", "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "linear", "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",  "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "github", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "name": "Finalize",
+      "config": { "summaryFields": ["text"] }
+    }
+  ],
+  "edges": [
+    { "id": "e-in-cmd", "source": "input",     "target": "commander" },
+    { "id": "e-cmd-fi", "source": "commander", "target": "finalize"  }
+  ]
+}

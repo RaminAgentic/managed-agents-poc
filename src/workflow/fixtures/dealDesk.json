@@ -1,0 +1,70 @@
+{
+  "id": "wf-deal-desk",
+  "name": "Deal Desk Approval",
+  "version": "1.0",
+  "entryNodeId": "input",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "input",
+      "name": "Deal reference",
+      "config": {
+        "requiredFields": ["opportunityId"]
+      }
+    },
+    {
+      "id": "reader",
+      "type": "agent",
+      "name": "Opportunity reader",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "You are a deal desk analyst. Given a Salesforce Opportunity ID, do the following and return a structured JSON summary:\n\n1. Read the opportunity: amount, stage, close date, product mix, primary contact, sales rep.\n2. Read the parent account: tier, industry, ARR, renewal history, open support cases.\n3. Query closed-won opportunities in the last 12 months with similar amount and product mix. Extract their discount %.\n4. Compute this deal's discount % vs. the comps' median and p90.\n\nReturn JSON with the shape: { \"opportunity\": {...}, \"account\": {...}, \"comps\": { \"median_discount\": n, \"p90_discount\": n, \"sample_size\": n }, \"this_deal_discount\": n, \"flags\": [ ... any policy flags ... ] }. Do NOT post anywhere yet — just return the JSON.",
+        "inputMapping": {
+          "opportunityId": "$.run.input.opportunityId"
+        },
+        "timeoutSeconds": 300,
+        "outputFormat": "json",
+        "mcpServers": [
+          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "reviewer",
+      "type": "agent",
+      "name": "Reviewer + writer",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "You are the deal desk reviewer. You'll receive a JSON analysis of a Salesforce opportunity in `analysis`. Do the following:\n\n1. Decide whether this deal warrants CFO approval. Rules:\n   - Discount > 20% → needs approval\n   - Deal > $500k ARR → needs approval\n   - Any policy flag in analysis.flags → needs approval\n   - Otherwise, auto-approve.\n\n2. Post a summary to the #deal-desk Slack channel. Include: opportunity name, ARR, discount %, comps (median + p90), any flags, and your recommended action (approve / needs-cfo / reject). If CFO approval is needed, @-mention the #deal-desk-approvers group and ask for a :white_check_mark: or :x: reaction. Wait up to 5 minutes for a response.\n\n3. Based on the Slack reaction (or auto-approval rule), write a Chatter post back on the Salesforce opportunity with the decision, timestamp, and approver name.\n\n4. Return a short final summary of what happened.",
+        "inputMapping": {
+          "analysis": "$.steps.reader.outputs.parsed"
+        },
+        "timeoutSeconds": 600,
+        "mcpServers": [
+          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" },
+          { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",      "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "name": "Finalize",
+      "config": { "summaryFields": ["text"] }
+    }
+  ],
+  "edges": [
+    { "id": "e-in-rd",  "source": "input",    "target": "reader"   },
+    { "id": "e-rd-rv",  "source": "reader",   "target": "reviewer" },
+    { "id": "e-rv-fi",  "source": "reviewer", "target": "finalize" }
+  ]
+}
