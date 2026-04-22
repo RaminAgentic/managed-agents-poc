@@ -22,6 +22,8 @@ import { validateWorkflowSchema } from "../workflow/schemaValidator";
 import { executeWorkflow } from "../workflow/executor";
 import { updateRunStatus } from "../workflow/persistence";
 import type { WorkflowSchema } from "../workflow/types";
+import { renderRunAsReactArtifact } from "../workflow/renderRunArtifact";
+import { renderWorkflowMermaid } from "../workflow/renderMermaid";
 
 // ── Tool Schemas ───────────────────────────────────────────────────────
 // Replicated from mcp/src/tools/*.ts — KEEP IN SYNC
@@ -274,8 +276,42 @@ async function handleGetRunStatus(
       recentEvents.forEach((log) => parts.push(`  ${log}`));
     }
 
+    // Build rich visualizations for Cowork: a React component it can
+    // promote to an artifact, plus a mermaid fallback for Slack / plain
+    // markdown renderers.
+    let artifactHint = "";
+    try {
+      const schema = JSON.parse(
+        detail.run.schema_json as unknown as string
+      ) as WorkflowSchema;
+      const reactCode = renderRunAsReactArtifact(schema, {
+        run: detail.run,
+        steps: detail.steps,
+      });
+      const mermaid = renderWorkflowMermaid(schema, detail.steps);
+
+      artifactHint = [
+        "",
+        "---",
+        "",
+        "🎨 **Visual dashboard available.** Please create an artifact using the React component below (type: application/vnd.ant.react, title: \"Run " + detail.run.id.slice(0, 8) + "\"). The user wants to see the visual run state.",
+        "",
+        "```jsx",
+        reactCode,
+        "```",
+        "",
+        "If artifacts aren't available in this context, render the flow state from this mermaid instead:",
+        "",
+        "```mermaid",
+        mermaid,
+        "```",
+      ].join("\n");
+    } catch (err) {
+      console.warn("[mcp] renderRunAsReactArtifact failed:", err);
+    }
+
     return {
-      content: [{ type: "text", text: parts.join("\n") }],
+      content: [{ type: "text", text: parts.join("\n") + artifactHint }],
     };
   } catch (err) {
     return {
