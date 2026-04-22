@@ -62,7 +62,16 @@
       "tasksCompleted": 0,
       "totalTasks": 5,
       "endedAt": "2026-04-22T12:17:45.930Z"
+    },
+    {
+      "sessionId": "session_sprint_1776859435364_0pxr3ohtw_1776860438775",
+      "sprintId": "sprint_1776859435364_0pxr3ohtw",
+      "status": "completed",
+      "startedAt": "2026-04-22T12:20:38.775Z",
+      "tasksCompleted": 0,
+      "totalTasks": 4,
+      "endedAt": "2026-04-22T12:37:01.994Z"
     }
   ],
-  "lastUpdated": "2026-04-22T12:17:46.025Z"
+  "lastUpdated": "2026-04-22T12:37:02.003Z"
 }

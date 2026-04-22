@@ -8,7 +8,7 @@
 // ── Node types ──────────────────────────────────────────────────────
 
 /** Supported node types in a workflow graph */
-export type NodeType = "input" | "agent" | "finalize";
+export type NodeType = "input" | "agent" | "human_gate" | "finalize";
 
 /** Model configuration for agent nodes */
 export interface ModelConfig {
@@ -30,13 +30,20 @@ export interface AgentNodeConfig {
   outputFormat?: "text" | "json";
 }
 
+/** Configuration specific to human gate nodes */
+export interface HumanGateNodeConfig {
+  channel: string;
+  messageTemplate: string;
+  decisionValues: string[];
+}
+
 /** Configuration specific to finalize nodes */
 export interface FinalizeNodeConfig {
   summaryFields?: string[];
 }
 
 /** Union of all node configs based on type */
-export type NodeConfig = InputNodeConfig | AgentNodeConfig | FinalizeNodeConfig;
+export type NodeConfig = InputNodeConfig | AgentNodeConfig | HumanGateNodeConfig | FinalizeNodeConfig;
 
 /** A node in the workflow graph */
 export interface WorkflowNode {

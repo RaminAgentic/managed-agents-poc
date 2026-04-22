@@ -6,7 +6,7 @@
   "projectPath": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
   "status": "development",
   "createdAt": "2026-04-22T08:39:52.783Z",
-  "updatedAt": "2026-04-22T12:17:45.778Z",
+  "updatedAt": "2026-04-22T12:37:01.808Z",
   "version": "1.0.0",
   "useCaseNodes": [],
   "requirementNodes": [],
@@ -460,34 +460,34 @@
       "name": "Sprint 6: React Flow Visual Workflow Editor",
       "description": "Add a visual workflow designer to the web app using React Flow. Users can drag and drop nodes (Input, Agent, HumanGate, Finalize), configure each node via an inspector panel, and save the result as the JSON schema format defined in the Orchestration Workbench spec.",
       "priority": "high",
-      "status": "pending",
+      "status": "completed",
       "individualTasks": [
         {
           "id": "task_1776859435369_0_120kq",
           "title": "Install React Flow and scaffold custom node components",
           "description": "Install reactflow and its peer dependencies in the client/ directory. Create four custom node components: InputNode, AgentNode, HumanGateNode, and FinalizeNode. Each node should display its name and type, with distinct visual styling per type (e.g. color-coded borders). Register them in a nodeTypes map and render a basic React Flow canvas in the app.",
-          "status": "pending",
+          "status": "completed",
           "priority": "critical"
         },
         {
           "id": "task_1776859435369_1_aysuj",
           "title": "Build node inspector panel",
           "description": "When a node is selected on the canvas, show an inspector panel on the right side. Inspector fields per node type: InputNode shows a requiredFields list editor; AgentNode shows instructions textarea, effort select (low/medium/high/xhigh/max), and timeoutSeconds input; HumanGateNode shows channel input and messageTemplate textarea; FinalizeNode shows no editable fields. Changes update the node's data in React Flow state.",
-          "status": "pending",
+          "status": "completed",
           "priority": "high"
         },
         {
           "id": "task_1776859435369_2_gfig2",
           "title": "Implement workflow serialization and JSON schema validator",
           "description": "Add a serializeWorkflow() function that converts the React Flow nodes+edges state into the JSON schema format (schemaVersion, flowId, name, entryNodeId, nodes[], edges[]). Add a validateWorkflow() function that checks: entryNodeId exists, all edge from/to refs exist, agent nodes have agentRef and instructions, human_gate nodes have channel and decisionValues. Show validation errors in the UI before allowing save.",
-          "status": "pending",
+          "status": "completed",
           "priority": "high"
         },
         {
           "id": "task_1776859435369_3_8izm5",
           "title": "Add Save and Load workflow buttons wired to the API",
           "description": "Add a toolbar above the React Flow canvas with Save and Load buttons. Save calls POST /workflows with the serialized JSON schema and shows a success/error toast. Load opens a modal listing saved workflows (GET /workflows) and clicking one loads it into React Flow by deserializing the schema back into nodes and edges.",
-          "status": "pending",
+          "status": "completed",
           "priority": "high"
         }
       ]
@@ -689,7 +689,21 @@
           "status": "completed",
           "priority": "high"
         }
-      ]
+      ],
+      "codeReview": {
+        "summary": "Review error: Expected property name or '}' in JSON at position 2 (line 1 column 3)",
+        "totalIssues": 0,
+        "issuesByPriority": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        },
+        "issueIds": [],
+        "reviewerModel": "haiku",
+        "noIssuesFound": true,
+        "reviewedAt": "2026-04-22T12:19:37.270Z"
+      }
     },
     {
       "id": "sprint_1776859521340_3hsh62ot0",
@@ -784,11 +798,10 @@
   "currentWizardStep": 1,
   "projectType": "poc",
   "autopilot": {
-    "active": false,
+    "active": true,
     "paused": false,
     "currentStep": 1,
-    "startedAt": "2026-04-22T08:50:16.549Z",
-    "stoppedAt": "2026-04-22T09:00:51.763Z"
+    "startedAt": "2026-04-22T12:20:11.796Z"
   },
   "autopilotJournal": {
     "runs": [
@@ -816,9 +829,31 @@
         "endedAt": "2026-04-22T09:00:51.763Z",
         "durationMs": 635214,
         "toStep": 1
+      },
+      {
+        "id": "moa0t8d0",
+        "startedAt": "2026-04-22T12:20:11.796Z",
+        "outcome": "running",
+        "templateId": "direct-vibe-v1",
+        "fromStep": 1,
+        "steps": {},
+        "stepOrder": [],
+        "pauses": [],
+        "metrics": {
+          "stepsProcessed": 0,
+          "stepsSkipped": 0,
+          "totalGateEvaluations": 0,
+          "gatesPassedFirstTry": 0,
+          "gatesIterated": 0,
+          "gatesForceApproved": 0,
+          "sprintsExecuted": 0,
+          "codeReviewsPerformed": 0,
+          "codeReviewIssuesTotal": 0,
+          "fixSprintsCreated": 0
+        }
       }
     ],
-    "activeRunId": null
+    "activeRunId": "moa0t8d0"
   },
   "designSystem": "modern",
   "colorScheme": "ocean",

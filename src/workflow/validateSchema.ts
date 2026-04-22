@@ -55,7 +55,7 @@ export function validateWorkflowSchema(schema: unknown): ValidationResult {
   }
 
   // Validate each node
-  const validTypes = new Set(["input", "agent", "finalize"]);
+  const validTypes = new Set(["input", "agent", "human_gate", "finalize"]);
   for (const node of ws.nodes) {
     if (!node.id || typeof node.id !== "string") {
       errors.push("Node missing 'id'");
