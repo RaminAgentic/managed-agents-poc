@@ -16,17 +16,27 @@ const CLASSIFIER_SYSTEM =
   "- research: factual questions, explanations, summaries, 'tell me about', 'explain'\n" +
   "- other: anything else";
 
+/** Routing label returned by the classifier. */
+export type AgentType = "weather" | "research" | "other";
+
+/** Structured result from the orchestrator (Sprint 4). */
+export interface OrchestratorResult {
+  response: string;
+  agentType: AgentType;
+}
+
 /**
  * Orchestrator: Claude-to-Claude delegation pattern.
  *
  * 1. Classifies the user's intent via a single messages.create call (no tools).
  * 2. Logs the routing decision.
- * 3. Delegates to the appropriate sub-agent and returns its response.
+ * 3. Delegates to the appropriate sub-agent and returns its response
+ *    wrapped in an OrchestratorResult (includes agentType for the web UI).
  *
  * Cost note: This adds one extra (cheap) classifier call per user prompt.
  * Acceptable for POC; production would cache or inline routing.
  */
-export async function runOrchestrator(userPrompt: string): Promise<string> {
+export async function runOrchestrator(userPrompt: string): Promise<OrchestratorResult> {
   if (!userPrompt.trim()) {
     throw new Error("Empty prompt — nothing to classify.");
   }
@@ -48,9 +58,9 @@ export async function runOrchestrator(userPrompt: string): Promise<string> {
     .trim();
 
   // Forgiving parser: extract a known label even if the model is verbose
-  const label = rawLabel.match(/weather|research/)?.[0] ?? "other";
+  const label = (rawLabel.match(/weather|research/)?.[0] ?? "other") as AgentType;
 
-  // --- Step 2: Log routing decision (Task 4) ---
+  // --- Step 2: Log routing decision ---
   console.log(`\n━━━ Orchestrator: classified as "${label}" ━━━`);
   console.log(
     `→ routing to: ${label === "weather" ? "weather-agent" : "research-agent"}`
@@ -59,11 +69,11 @@ export async function runOrchestrator(userPrompt: string): Promise<string> {
   // --- Step 3: Delegate to sub-agent ---
   switch (label) {
     case "weather":
-      return runAgent(userPrompt);
+      return { response: await runAgent(userPrompt), agentType: "weather" };
     case "research":
-      return runResearchAgent(userPrompt);
+      return { response: await runResearchAgent(userPrompt), agentType: "research" };
     default:
       // Default to research agent — it handles open-ended prompts gracefully
-      return runResearchAgent(userPrompt);
+      return { response: await runResearchAgent(userPrompt), agentType: "other" };
   }
 }

@@ -31,11 +31,20 @@
     {
       "sessionId": "session_sprint_1776848975734_pof4ndyfo_1776848977308",
       "sprintId": "sprint_1776848975734_pof4ndyfo",
-      "status": "running",
+      "status": "completed",
       "startedAt": "2026-04-22T09:09:37.308Z",
+      "tasksCompleted": 0,
+      "totalTasks": 4,
+      "endedAt": "2026-04-22T09:17:50.094Z"
+    },
+    {
+      "sessionId": "session_sprint_1776848975734_pof4ndyfo_1776849090549",
+      "sprintId": "sprint_1776848975734_pof4ndyfo",
+      "status": "running",
+      "startedAt": "2026-04-22T09:11:30.549Z",
       "tasksCompleted": 0,
       "totalTasks": 4
     }
   ],
-  "lastUpdated": "2026-04-22T09:09:42.037Z"
+  "lastUpdated": "2026-04-22T09:17:50.100Z"
 }
