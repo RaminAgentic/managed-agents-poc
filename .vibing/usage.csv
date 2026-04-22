@@ -1,0 +1,42 @@
+timestamp,projectId,projectName,iterationId,iterationNumber,stepId,taskType,agent,model,inputTokens,outputTokens,totalTokens,costUsd,durationMs,operation,sessionId
+2026-04-22T08:40:04.399Z,proj_1776847192658_clz2mby18,,,,,other,welcome-generator,claude-sonnet-4-6,3,330,333,0.0162848,11406,"Welcome the user back to their project. Mention:
+- The project name: ""Managed Agents POC""
+- Their co",welcome-proj_1776847192658_clz2mby18-1776847192992
+2026-04-22T08:40:24.578Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,sprint-planner,claude-sonnet-4-6,8,894,902,0.15288500000000002,19240,SPRINT PLANNING - Generate NEXT PHASE for: Bare-bones proof of concept for Claude managed agents — b,sprint-generator-session
+2026-04-22T08:40:24.582Z,proj_1776847192658_clz2mby18,,,,,planning,sprint-planner,claude-sonnet-4-6,8,894,902,0.15288500000000002,0,SPRINT PLANNING - Generate NEXT PHASE for: Bare-bones proof of concept for Claude managed agents — b,
+2026-04-22T08:40:47.136Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,task-generator,claude-sonnet-4-6,6,1709,1715,0.08373525,22361,"Generate specific tasks for this sprint in the context of the actual project:
+
+PROJECT TYPE: poc
+PRO",task-generator-session
+2026-04-22T08:41:07.168Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,task-generator,claude-sonnet-4-6,6,1435,1441,0.07266225000000001,20022,"Generate specific tasks for this sprint in the context of the actual project:
+
+PROJECT TYPE: poc
+PRO",task-generator-session
+2026-04-22T08:41:37.347Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,task-generator,claude-sonnet-4-6,6,2004,2010,0.09105875000000001,30171,"Generate specific tasks for this sprint in the context of the actual project:
+
+PROJECT TYPE: poc
+PRO",task-generator-session
+2026-04-22T08:46:22.313Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,sprint-planner,claude-sonnet-4-6,6,336,342,0.018599,10911,SPRINT PLANNING - Generate NEXT PHASE for: Bare-bones proof of concept for Claude managed agents — b,sprint-generator-session
+2026-04-22T08:46:22.317Z,proj_1776847192658_clz2mby18,,,,,planning,sprint-planner,claude-sonnet-4-6,6,336,342,0.018599,0,SPRINT PLANNING - Generate NEXT PHASE for: Bare-bones proof of concept for Claude managed agents — b,
+2026-04-22T08:46:54.641Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,task-generator,claude-sonnet-4-6,6,2456,2462,0.101882,32311,"Generate specific tasks for this sprint in the context of the actual project:
+
+PROJECT TYPE: poc
+PRO",task-generator-session
+2026-04-22T08:47:25.880Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,task-generator,claude-sonnet-4-6,6,2174,2180,0.09519875000000001,31228,"Generate specific tasks for this sprint in the context of the actual project:
+
+PROJECT TYPE: poc
+PRO",task-generator-session
+2026-04-22T08:50:32.368Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,autopilot-manager,claude-sonnet-4-6,3,879,882,0.0780473,15773,"## Template Steps
+  0. id=""project-definition"" ""Concept"" [approved] — template: form-input ⚠ REQUIRE",autopilot-flight-plan-mo9tb9t1
+2026-04-22T08:52:22.241Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,execution-planner,claude-sonnet-4-6,11,7774,7785,0.32831825000000003,105807,"# SPRINT EXECUTION PLANNING
+
+## Project Context:
+**Project**: Bare-bones proof of concept for Claude",sprint-execution-session
+2026-04-22T08:52:22.245Z,proj_1776847192658_clz2mby18,,,,,planning,sprint-execution-planner,claude-sonnet-4-6,11,7774,7785,0.32831825000000003,0,"# SPRINT EXECUTION PLANNING
+
+## Project Context:
+**Project**: Bare-bones proof of concept for Claude",
+2026-04-22T08:56:10.463Z,proj_1776847192658_clz2mby18,,,,development,coding,vibing-agent-service,claude-opus-4-6,35,11068,11103,0.9231927499999999,228108,Execute the sprint tasks as described in the system prompt. Read the project files for any additiona,sprint-execution-sprint_1776847582318_1-1776847942252
+2026-04-22T08:56:30.196Z,proj_1776847192658_clz2mby18,,,,development,coding,vibing-agent-service,claude-opus-4-6,5,357,362,0.0903785,19724,"SYSTEM: POST-TASK VALIDATION REQUIRED.
+
+Before reporting completion, you must validate your changes:",sprint-execution-sprint_1776847582318_1-1776847942252

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "currentPhase": 1,
+  "phases": [
+    {
+      "number": 1,
+      "status": "active",
+      "eventCount": 0,
+      "startedAt": 1776847192759
+    }
+  ]
+}
