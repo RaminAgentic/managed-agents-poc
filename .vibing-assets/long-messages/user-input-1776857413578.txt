@@ -1,0 +1,96 @@
+Yes — here’s a minimal **API** example for Claude Managed Agents using the official Python SDK. The docs show that you create an agent, create an environment, then start a session, and that all Managed Agents requests require the `managed-agents-2026-04-01` beta header, which the SDK sets automatically.[1][2][3]
+
+## Python example
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+agent = client.beta.agents.create(
+    name="Coding Assistant",
+    model="claude-haiku-4-5",
+    system="You are a helpful coding assistant. Write clean, well-documented code.",
+    tools=[
+        {"type": "agent_toolset_20260401"},
+    ],
+)
+
+print(f"Agent ID: {agent.id}")
+
+environment = client.beta.environments.create(
+    name="quickstart-env",
+    config={
+        "type": "cloud",
+        "networking": {"type": "unrestricted"},
+    },
+)
+
+print(f"Environment ID: {environment.id}")
+
+session = client.beta.sessions.create(
+    agent=agent.id,
+    environment_id=environment.id,
+    title="Quickstart session",
+)
+
+print(f"Session ID: {session.id}")
+```
+
+## Sending a task
+
+After creating the session, you open an event stream and send a user message into it. The docs’ quickstart shows using `client.beta.sessions.events.stream(...)` and then `events.send(...)` to submit the task, with the agent responding through streamed events.[2][4]
+
+```python
+with client.beta.sessions.events.stream(session.id) as stream:
+    client.beta.sessions.events.send(
+        session.id,
+        events=[
+            {
+                "type": "user.message",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Create a Python script that generates the first 20 Fibonacci numbers and saves them to fibonacci.txt",
+                    },
+                ],
+            },
+        ],
+    )
+
+    for event in stream:
+        if event.type == "agent.message":
+            for block in event.content:
+                print(block.text, end="")
+        elif event.type == "agent.tool_use":
+            print(f"\n[Using tool: {event.name}]")
+        elif event.type == "session.status_idle":
+            print("\nAgent finished.")
+            break
+```
+
+## What you need
+
+- A Claude API key.[1]
+- The Managed Agents beta header, which the SDK handles for you.[5][1]
+- Access to Claude Managed Agents, which the docs say is enabled by default for API accounts.[1]
+
+## Install
+
+```bash
+pip install anthropic
+```
+
+If you want, I can turn this into a **Node.js example** or a **real script with env vars and polling**.
+
+Sources
+[1] Claude Managed Agents overview - Claude API Docs https://platform.claude.com/docs/en/managed-agents/overview
+[2] Get started with Claude Managed Agents - Claude API Docs https://platform.claude.com/docs/en/managed-agents/quickstart
+[3] Beta headers - Claude API Docs https://platform.claude.com/docs/en/api/beta-headers
+[4] Start a session - Claude API Docs https://platform.claude.com/docs/en/managed-agents/sessions
+[5] Tools - Claude API Docs https://platform.claude.com/docs/en/managed-agents/tools
+[6] Claude Managed Agents Full Tutorial: How to Setup Your First AI Agent https://www.youtube.com/watch?v=OU4gE2M45vY
+[7] Our Take​ https://claudeai.dev/blog/claude-managed-agents-what-just-launched/
+[8] Claude Managed Agents: Beginners Guide with Code Examples https://mer.vin/2026/04/claude-managed-agents-beginners-guide-with-code-examples/
+[9] What Is Claude Managed Agents? A Developer Guide - Verdent AI https://www.verdent.ai/guides/what-is-claude-managed-agents
+[10] Introducing Claude Managed Agents, now in public beta. - Reddit https://www.reddit.com/r/ClaudeAI/comments/1sfz7a5/introducing_claude_managed_agents_now_in_public/

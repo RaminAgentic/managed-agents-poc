@@ -1,13 +1,13 @@
 {
-  "sessionId": "session_1776852107317",
+  "sessionId": "session_1776856705238",
   "sessionUrl": "http://localhost:5002",
   "sessionTitle": "Unknown",
-  "lastUpdated": "2026-04-22T10:01:48.300Z",
+  "lastUpdated": "2026-04-22T12:16:01.467Z",
   "logs": [
     {
       "level": "warning",
       "message": "Console capture initialized",
-      "timestamp": "2026-04-22T10:01:48.300Z",
+      "timestamp": "2026-04-22T12:16:01.467Z",
       "line": 8,
       "sourceId": ""
     }

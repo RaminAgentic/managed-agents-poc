@@ -8,6 +8,10 @@ const MODEL = "claude-sonnet-4-5";
 /**
  * System prompt for the intent classifier.
  * Forces the model to respond with a single routing label.
+ *
+ * Note: The classifier intentionally uses the lightweight messages.create
+ * API — it's a single-shot, no-tool call that doesn't benefit from a
+ * managed agent session.
  */
 const CLASSIFIER_SYSTEM =
   "Classify the user's request into exactly one category. " +
@@ -19,7 +23,7 @@ const CLASSIFIER_SYSTEM =
 /** Routing label returned by the classifier. */
 export type AgentType = "weather" | "research" | "other";
 
-/** Structured result from the orchestrator (Sprint 4). */
+/** Structured result from the orchestrator. */
 export interface OrchestratorResult {
   response: string;
   agentType: AgentType;
@@ -30,18 +34,21 @@ export interface OrchestratorResult {
  *
  * 1. Classifies the user's intent via a single messages.create call (no tools).
  * 2. Logs the routing decision.
- * 3. Delegates to the appropriate sub-agent and returns its response
- *    wrapped in an OrchestratorResult (includes agentType for the web UI).
+ * 3. Delegates to the appropriate managed agent session and returns its
+ *    response wrapped in an OrchestratorResult (includes agentType for the
+ *    web UI).
  *
  * Cost note: This adds one extra (cheap) classifier call per user prompt.
  * Acceptable for POC; production would cache or inline routing.
  */
-export async function runOrchestrator(userPrompt: string): Promise<OrchestratorResult> {
+export async function runOrchestrator(
+  userPrompt: string
+): Promise<OrchestratorResult> {
   if (!userPrompt.trim()) {
     throw new Error("Empty prompt — nothing to classify.");
   }
 
-  // --- Step 1: Classify intent ---
+  // --- Step 1: Classify intent (lightweight, no managed session needed) ---
   const classifierResponse = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 10,
@@ -63,17 +70,25 @@ export async function runOrchestrator(userPrompt: string): Promise<OrchestratorR
   // --- Step 2: Log routing decision ---
   console.log(`\n━━━ Orchestrator: classified as "${label}" ━━━`);
   console.log(
-    `→ routing to: ${label === "weather" ? "weather-agent" : "research-agent"}`
+    `→ routing to managed agent session: ${
+      label === "weather" ? "weather-agent" : "research-agent"
+    }`
   );
 
-  // --- Step 3: Delegate to sub-agent ---
+  // --- Step 3: Delegate to managed agent session ---
   switch (label) {
     case "weather":
       return { response: await runAgent(userPrompt), agentType: "weather" };
     case "research":
-      return { response: await runResearchAgent(userPrompt), agentType: "research" };
+      return {
+        response: await runResearchAgent(userPrompt),
+        agentType: "research",
+      };
     default:
-      // Default to research agent — it handles open-ended prompts gracefully
-      return { response: await runResearchAgent(userPrompt), agentType: "other" };
+      // Default to research agent — handles open-ended prompts gracefully
+      return {
+        response: await runResearchAgent(userPrompt),
+        agentType: "other",
+      };
   }
 }

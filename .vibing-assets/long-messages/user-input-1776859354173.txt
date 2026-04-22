@@ -1,0 +1,301 @@
+# Claude Managed Agent Orchestration Workbench
+
+## Overview
+Build a workflow orchestration system where users visually design multi-step flows using **React Flow**. Each step is a **Claude Managed Agent** (Opus 4.7), orchestrated by a master agent that follows a JSON schema. Include **Slack human gates**, **audit trails**, and **MCP app integration** for Claude Code.
+
+**Key Components:**
+- Web app (React Flow) → JSON schema → Orchestrator → Managed Agents → Slack → Database
+
+## Architecture
+
+```
+MCP App (Claude Code)    Web App (React Flow)
+        |                        |
+        |                        |
+        v                        v
+   [Orchestrator Agent] ←─────── JSON Schema (Workflow Definition)
+           |                           
+           | 1. Execute step agents
+           | 2. Human gates via Slack  
+           | 3. Audit trail
+           v
+[Database] ←─ Run Logs / Audit Trail
+```
+
+## Core JSON Schema (v1.0)
+
+```json
+{
+  "schemaVersion": "1.0",
+  "flowId": "flow_abc123",
+  "name": "Content Pipeline",
+  "entryNodeId": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "input",
+      "name": "User Input",
+      "config": {
+        "requiredFields": ["topic", "audience"]
+      },
+      "outputs": {
+        "topic": "string",
+        "audience": "string"
+      }
+    },
+    {
+      "id": "draft",
+      "type": "agent",
+      "name": "Draft Agent",
+      "agentRef": "draft-agent-v1",
+      "modelConfig": {
+        "model": "claude-opus-4-7",
+        "effort": "xhigh"
+      },
+      "config": {
+        "instructions": "Write initial draft for {{$.run.input.audience}}",
+        "timeoutSeconds": 180
+      },
+      "inputMapping": {
+        "topic": "$.run.input.topic",
+        "audience": "$.run.input.audience"
+      },
+      "outputs": {
+        "draft": "string",
+        "summary": "string"
+      }
+    },
+    {
+      "id": "review",
+      "type": "human_gate",
+      "name": "Slack Approval",
+      "config": {
+        "channel": "#approvals",
+        "messageTemplate": "Review draft for {{flow.name}} (run {{run.id}})",
+        "decisionValues": ["approved", "rejected", "changes_needed"]
+      },
+      "inputMapping": {
+        "draft": "$.steps.draft.outputs.draft"
+      },
+      "outputs": {
+        "decision": "string",
+        "approver": "string",
+        "comment": "string"
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "agent",
+      "name": "Finalize Agent",
+      "agentRef": "finalize-agent-v1",
+      "modelConfig": {
+        "model": "claude-opus-4-7",
+        "effort": "high"
+      },
+      "config": {
+        "instructions": "Polish final content based on approval feedback."
+      },
+      "inputMapping": {
+        "draft": "$.steps.draft.outputs.draft",
+        "decision": "$.steps.review.outputs.decision",
+        "comment": "$.steps.review.outputs.comment"
+      },
+      "outputs": {
+        "finalContent": "string"
+      }
+    },
+    {
+      "id": "done",
+      "type": "finalize",
+      "name": "Complete"
+    }
+  ],
+  "edges": [
+    {"from": "start", "to": "draft"},
+    {"from": "draft", "to": "review"},
+    {
+      "from": "review", 
+      "to": "finalize",
+      "when": {
+        "equals": {"path": "$.steps.review.outputs.decision", "value": "approved"}
+      }
+    },
+    {"from": "finalize", "to": "done"}
+  ]
+}
+```
+
+## Node Types
+| Type | Purpose | Config Fields |
+|------|---------|---------------|
+| `input` | User data entry | `requiredFields[]` |
+| `agent` | Claude Managed Agent | `agentRef`, `modelConfig`, `instructions`, `timeoutSeconds`, `inputMapping`, `outputs` |
+| `human_gate` | Slack approval | `channel`, `messageTemplate`, `decisionValues[]` |
+| `finalize` | End workflow | None |
+
+## Model Config (All Opus 4.7)
+```json
+{
+  "model": "claude-opus-4-7",
+  "effort": "low|medium|high|xhigh|max"
+}
+```
+**Default:** `xhigh` effort for all agents.
+
+## Database Schema
+
+```sql
+-- Workflows
+CREATE TABLE workflows (
+  id VARCHAR PRIMARY KEY,
+  name VARCHAR NOT NULL,
+  schema JSONB NOT NULL,
+  version INTEGER DEFAULT 1,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Runs  
+CREATE TABLE workflow_runs (
+  id VARCHAR PRIMARY KEY,
+  workflow_id VARCHAR REFERENCES workflows(id),
+  status VARCHAR CHECK (status IN ('pending','running','completed','failed')),
+  input_json JSONB,
+  created_at TIMESTAMP DEFAULT NOW(),
+  completed_at TIMESTAMP
+);
+
+-- Steps
+CREATE TABLE run_steps (
+  id VARCHAR PRIMARY KEY,
+  run_id VARCHAR REFERENCES workflow_runs(id),
+  node_id VARCHAR NOT NULL,
+  status VARCHAR,
+  input_json JSONB,
+  output_json JSONB,
+  agent_session_id VARCHAR, -- Claude session ID
+  started_at TIMESTAMP,
+  completed_at TIMESTAMP
+);
+
+-- Events (Audit Trail)
+CREATE TABLE run_events (
+  id VARCHAR PRIMARY KEY,
+  run_id VARCHAR REFERENCES workflow_runs(id),
+  step_id VARCHAR REFERENCES run_steps(id),
+  event_type VARCHAR,
+  payload JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Approvals
+CREATE TABLE approvals (
+  id VARCHAR PRIMARY KEY,
+  step_id VARCHAR REFERENCES run_steps(id),
+  slack_channel VARCHAR,
+  slack_user_id VARCHAR,
+  decision VARCHAR,
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+## Implementation Priority
+
+### Phase 1 (MVP)
+1. **React Flow web app** - Visual editor → JSON schema
+2. **JSON Schema validator** - Enforce node/edge rules
+3. **Basic orchestrator** - Execute `input` → `agent` → `finalize`
+4. **Database** - Store workflows, runs, steps, events
+5. **Simple API** - `/workflows`, `/runs`, `/runs/{id}/status`
+
+### Phase 2
+1. **Slack human gates** - Post approval requests, store responses
+2. **MCP app** - Claude Code integration for triggering runs
+3. **Live run monitoring** - WebSocket updates in React Flow
+4. **Opus 4.7 effort config** - Per-node model settings
+
+### Phase 3
+1. **Advanced routing** - Conditional edges, retries, parallelism
+2. **Agent templates** - Reusable `agentRef` definitions
+3. **RBAC** - User/workflow permissions
+
+## React Flow Integration
+
+**Node Types to Implement:**
+```javascript
+const nodeTypes = {
+  inputNode: InputNode,
+  agentNode: AgentNode, 
+  humanGateNode: HumanGateNode,
+  finalizeNode: FinalizeNode
+};
+```
+
+**Node Inspector Fields:**
+- Agent: `instructions`, `effort` (select), `timeout`
+- Human Gate: `channel`, `messageTemplate`
+- Input: `requiredFields[]`
+
+**Serialization:**
+```javascript
+// Save workflow
+const workflowJson = reactFlow.toObject();
+saveWorkflow(workflowJson);
+```
+
+## Orchestrator Logic
+
+```javascript
+// Pseudo-code
+async function executeWorkflow(runId, workflowJson, input) {
+  let currentNode = workflowJson.entryNodeId;
+  let context = { run: { id: runId, input }, steps: {} };
+  
+  while (currentNode) {
+    const node = findNode(workflowJson.nodes, currentNode);
+    
+    switch (node.type) {
+      case 'agent':
+        await executeAgent(node, context);
+        break;
+      case 'human_gate':
+        await requestSlackApproval(node, context);
+        break;
+      case 'finalize':
+        return context;
+    }
+    
+    currentNode = findNextNode(workflowJson.edges, currentNode, context);
+  }
+}
+```
+
+## API Endpoints Needed
+
+```
+POST /workflows          # Save new workflow from React Flow
+GET  /workflows/:id      # Load for editing
+POST /runs               # Start workflow run
+GET  /runs/:id           # Run status + logs
+GET  /runs/:id/live      # WebSocket for live updates
+```
+
+## Success Metrics
+- ✅ Workflow saves/loads from React Flow
+- ✅ Single agent step executes end-to-end  
+- ✅ Run history + audit trail visible
+- ✅ Slack approval pauses/resumes flow
+- ✅ MCP app triggers workflows
+
+## Gotchas to Avoid
+1. **Don't let agents share sessions** - One session per step
+2. **Always validate schema** before execution
+3. **Slack is UI only** - Backend owns approval state
+4. **Store ALL events** - No data loss for audit
+5. **Version workflows** - Never mutate running schemas
+
+**Start with Phase 1.** The React Flow → JSON → single agent flow will prove the core concept. Then layer on human gates and MCP.
+
+**Need clarification?** Ping me on the schema fields or React Flow node implementation details.
+
+Sources

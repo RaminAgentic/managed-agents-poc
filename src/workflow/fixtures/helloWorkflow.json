@@ -1,0 +1,51 @@
+{
+  "id": "wf-hello-001",
+  "name": "Hello World Workflow",
+  "version": "1.0.0",
+  "entryNodeId": "input-node",
+  "nodes": [
+    {
+      "id": "input-node",
+      "type": "input",
+      "name": "Gather Input",
+      "config": {
+        "requiredFields": ["query"]
+      }
+    },
+    {
+      "id": "agent-node",
+      "type": "agent",
+      "name": "Research Agent",
+      "config": {
+        "instructions": "You are a helpful research assistant. The user wants to know about: {{query}}. Provide a concise, informative answer.",
+        "inputMapping": {
+          "query": "$.run.input.query"
+        },
+        "timeoutSeconds": 120,
+        "outputFormat": "text"
+      },
+      "modelConfig": {
+        "model": "claude-sonnet-4-5",
+        "maxTokens": 2048
+      }
+    },
+    {
+      "id": "finalize-node",
+      "type": "finalize",
+      "name": "Summarize Results",
+      "config": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "source": "input-node",
+      "target": "agent-node"
+    },
+    {
+      "id": "edge-2",
+      "source": "agent-node",
+      "target": "finalize-node"
+    }
+  ]
+}
