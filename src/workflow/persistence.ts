@@ -326,20 +326,25 @@ export async function getWorkflowRun(id: string): Promise<WorkflowRunRow | undef
  * Get a workflow run by ID with all steps and events included.
  */
 export async function getWorkflowRunWithDetails(id: string): Promise<{
-  run: WorkflowRunRow;
+  run: WorkflowRunRow & { workflow_name: string; schema_json: string };
   steps: RunStepRow[];
   events: RunEventRow[];
 } | undefined> {
   const r = await prisma.workflowRun.findUnique({
     where: { id },
     include: {
+      workflow: { select: { name: true, schemaJson: true } },
       steps: { orderBy: { startedAt: "asc" } },
       events: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!r) return undefined;
   return {
-    run: toWorkflowRunRow(r),
+    run: {
+      ...toWorkflowRunRow(r),
+      workflow_name: r.workflow.name,
+      schema_json: r.workflow.schemaJson,
+    },
     steps: r.steps.map(toRunStepRow),
     events: r.events.map(toRunEventRow),
   };

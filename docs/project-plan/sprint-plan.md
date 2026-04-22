@@ -1,6 +1,6 @@
 # Sprint Plan
 
-9 sprints planned
+10 sprints planned
 
 ## Sprint 1: Project Scaffolding & Claude SDK Setup [planned]
 Initialize the project (Node.js/TypeScript), install the Anthropic SDK, configure environment variables for the API key, and create a minimal data layer with hardcoded sample prompts/tools and a simple conversation state module to feed the managed agent.
@@ -63,10 +63,10 @@ Build the visual workflow designer using @xyflow/react. Users can drag and drop 
 
 **Tasks:**
 - Install React Flow and scaffold the editor page (completed)
-- Implement 4 custom node types (in_progress)
-- Build the node inspector panel (pending)
-- Implement workflow serialization and save/load (pending)
-- Add a Run button and input collection modal (pending)
+- Implement 4 custom node types (completed)
+- Build the node inspector panel (completed)
+- Implement workflow serialization and save/load (completed)
+- Add a Run button and input collection modal (completed)
 
 ## Sprint 8: Workflow Orchestrator Engine [planned]
 Implement the server-side workflow execution engine that reads a saved workflow JSON schema, walks the node graph, executes Claude Managed Agent nodes using claude-opus-4-7, resolves inputMapping expressions, persists every step and event to the database, and updates run status throughout.
@@ -86,3 +86,6 @@ Build the run monitoring experience in the React frontend. Users can browse all 
 - Build the Run Detail page with step timeline (pending)
 - Show agent output content in step detail (pending)
 - Add navigation between editor and runs (pending)
+
+## Fix: Sprint 7: React Flow Visual Workflow Editor [planned]
+Auto-created to address 1 critical/high priority issue(s) from code review

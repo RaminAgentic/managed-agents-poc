@@ -97,7 +97,16 @@
       "tasksCompleted": 0,
       "totalTasks": 5,
       "endedAt": "2026-04-22T13:40:48.152Z"
+    },
+    {
+      "sessionId": "session_sprint_1776859521340_3hsh62ot0_1776865340506",
+      "sprintId": "sprint_1776859521340_3hsh62ot0",
+      "status": "completed",
+      "startedAt": "2026-04-22T13:42:20.506Z",
+      "tasksCompleted": 0,
+      "totalTasks": 4,
+      "endedAt": "2026-04-22T14:00:30.623Z"
     }
   ],
-  "lastUpdated": "2026-04-22T13:40:48.160Z"
+  "lastUpdated": "2026-04-22T14:00:30.630Z"
 }

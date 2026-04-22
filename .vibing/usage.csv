@@ -249,3 +249,34 @@ Before reporting completion, you must validate your changes:",sprint-execution-s
 2026-04-22T13:40:47.791Z,proj_1776847192658_clz2mby18,,,,development,coding,vibing-agent-service,claude-opus-4-6,7,876,883,0.268615,41011,"SYSTEM: POST-TASK VALIDATION REQUIRED.
 
 Before reporting completion, you must validate your changes:",sprint-execution-sprint_1776859475690_olb7r2ol1-1776864476005
+2026-04-22T13:43:59.719Z,proj_1776847192658_clz2mby18,,,,development,coding,vibing-agent-service,claude-opus-4-6,870,10266,11136,0.7782135000000002,189237,Review the code in /Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed,reviewer-proj_1776847192658_clz2mby18-1776865250407
+2026-04-22T13:44:20.709Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,autopilot-manager,claude-sonnet-4-6,3,1182,1185,0.08259230000000001,24080,"## Failed Action
+{
+  ""action"": ""execute-sprint"",
+  ""params"": {
+    ""stepId"": ""development"",
+    ""spr",autopilot-replan-moa349z2-1776865436626
+2026-04-22T13:44:44.059Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,autopilot-manager,claude-sonnet-4-6,4,710,714,0.14512055000000001,23337,"## Failed Action
+{
+  ""action"": ""execute-sprint"",
+  ""params"": {
+    ""stepId"": ""development"",
+    ""spr",autopilot-replan-moa349z2-1776865460721
+2026-04-22T13:45:14.233Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,execution-planner,claude-sonnet-4-6,26,10604,10630,0.73304175,173671,"# SPRINT EXECUTION PLANNING
+
+## Project Context:
+**Project**: Bare-bones proof of concept for Claude",sprint-execution-session
+2026-04-22T13:45:14.238Z,proj_1776847192658_clz2mby18,,,,,planning,sprint-execution-planner,claude-sonnet-4-6,26,10604,10630,0.73304175,0,"# SPRINT EXECUTION PLANNING
+
+## Project Context:
+**Project**: Bare-bones proof of concept for Claude",
+2026-04-22T13:46:39.186Z,proj_1776847192658_clz2mby18,Managed Agents POC,,,,other,autopilot-manager,claude-sonnet-4-6,3,563,566,0.0741248,14824,"## Failed Action
+{
+  ""action"": ""execute-sprint"",
+  ""params"": {
+    ""stepId"": ""development"",
+    ""spr",autopilot-replan-moa349z2-1776865584361
+2026-04-22T13:58:59.262Z,proj_1776847192658_clz2mby18,,,,development,coding,vibing-agent-service,claude-opus-4-6,87,27471,27558,3.739408399999999,824963,Execute the sprint tasks as described in the system prompt. Read the project files for any additiona,sprint-execution-sprint_1776859521340_3hsh62ot0-1776865514245
+2026-04-22T14:00:30.362Z,proj_1776847192658_clz2mby18,,,,development,coding,vibing-agent-service,claude-opus-4-6,9,2331,2340,0.407771,91084,"SYSTEM: POST-TASK VALIDATION REQUIRED.
+
+Before reporting completion, you must validate your changes:",sprint-execution-sprint_1776859521340_3hsh62ot0-1776865514245

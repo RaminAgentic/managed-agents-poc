@@ -4,10 +4,12 @@ import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Badge from "@mui/material/Badge";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import ChatIcon from "@mui/icons-material/Chat";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import PlaylistPlayIcon from "@mui/icons-material/PlaylistPlay";
+import { useActiveRunCount } from "./hooks/useActiveRunCount";
 
 function NavButton({
   to,
@@ -42,6 +44,8 @@ function NavButton({
 }
 
 export default function App() {
+  const activeRunCount = useActiveRunCount();
+
   return (
     <Box sx={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <AppBar position="static" elevation={1}>
@@ -52,18 +56,33 @@ export default function App() {
             component="div"
             sx={{ fontSize: "1.1rem", mr: 3 }}
           >
-            Managed Agents POC
+            Workflow Workbench
           </Typography>
 
           <NavButton
             to="/"
             icon={<AccountTreeIcon sx={{ fontSize: 18 }} />}
-            label="Workflow Editor"
+            label="Editor"
           />
           <NavButton
             to="/runs"
-            icon={<PlaylistPlayIcon sx={{ fontSize: 18 }} />}
-            label="Runs"
+            icon={
+              <Badge
+                badgeContent={activeRunCount}
+                color="secondary"
+                invisible={activeRunCount === 0}
+                sx={{
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.65rem",
+                    minWidth: 16,
+                    height: 16,
+                  },
+                }}
+              >
+                <PlaylistPlayIcon sx={{ fontSize: 18 }} />
+              </Badge>
+            }
+            label="Run History"
           />
           <NavButton
             to="/chat"
