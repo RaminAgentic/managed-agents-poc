@@ -7,6 +7,8 @@ import LoginIcon from "@mui/icons-material/Login";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
 import PersonIcon from "@mui/icons-material/Person";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import CallSplitIcon from "@mui/icons-material/CallSplit";
+import AltRouteIcon from "@mui/icons-material/AltRoute";
 import type { NodeType } from "./types";
 
 interface PaletteItem {
@@ -17,10 +19,12 @@ interface PaletteItem {
 }
 
 const items: PaletteItem[] = [
-  { type: "input", label: "Input", color: "#2196f3", icon: <LoginIcon sx={{ fontSize: 18 }} /> },
-  { type: "agent", label: "Agent", color: "#7c4dff", icon: <SmartToyIcon sx={{ fontSize: 18 }} /> },
-  { type: "human_gate", label: "Human Gate", color: "#ed6c02", icon: <PersonIcon sx={{ fontSize: 18 }} /> },
-  { type: "finalize", label: "Finalize", color: "#2e7d32", icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
+  { type: "input",      label: "Input",       color: "#2196f3", icon: <LoginIcon sx={{ fontSize: 18 }} /> },
+  { type: "agent",      label: "Agent",       color: "#7c4dff", icon: <SmartToyIcon sx={{ fontSize: 18 }} /> },
+  { type: "gate",       label: "Gate (T/F)",  color: "#9c27b0", icon: <CallSplitIcon sx={{ fontSize: 18 }} /> },
+  { type: "router",     label: "Router",      color: "#0288d1", icon: <AltRouteIcon sx={{ fontSize: 18 }} /> },
+  { type: "human_gate", label: "Human Gate",  color: "#ed6c02", icon: <PersonIcon sx={{ fontSize: 18 }} /> },
+  { type: "finalize",   label: "Finalize",    color: "#2e7d32", icon: <CheckCircleIcon sx={{ fontSize: 18 }} /> },
 ];
 
 export default function NodePalette() {

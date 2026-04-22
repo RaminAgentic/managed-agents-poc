@@ -36,13 +36,16 @@ AgentNodeConfig shape (agents are Managed Agents — configured once here, execu
   }
 
 Known remote MCP servers (use these exact URLs):
-  - Slack:      https://mcp.slack.com/mcp
-  - Salesforce: https://mcp.salesforce.com/mcp
-  - Linear:     https://mcp.linear.app/mcp
-  - Sentry:     https://mcp.sentry.dev/mcp
-  - Notion:     https://mcp.notion.com/mcp
-  - GitHub:     https://api.githubcopilot.com/mcp/
-  - Atlassian:  https://mcp.atlassian.com/v1/sse
+  - Slack:           https://mcp.slack.com/mcp
+  - Salesforce:      https://mcp.salesforce.com/mcp
+  - Linear:          https://mcp.linear.app/mcp
+  - Sentry:          https://mcp.sentry.dev/mcp
+  - Notion:          https://mcp.notion.com/mcp
+  - GitHub:          https://api.githubcopilot.com/mcp/
+  - Atlassian:       https://mcp.atlassian.com/v1/sse
+  - Google Drive:    https://mcp.google.com/drive
+  - Gmail:           https://mcp.google.com/gmail
+  - Google Calendar: https://mcp.google.com/calendar
 
 Known Anthropic skills: "docx", "xlsx", "pdf", "pptx".
 

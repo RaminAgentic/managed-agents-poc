@@ -60,6 +60,12 @@ export function serializeWorkflow(
     id: e.id,
     source: e.source,
     target: e.target,
+    // React Flow puts the handle id (e.g. "true"/"false" for a gate, or a
+    // router label) on the edge as `sourceHandle`. Persist as `condition`
+    // so the executor can route on it.
+    ...((e as Edge & { sourceHandle?: string | null }).sourceHandle
+      ? { condition: (e as Edge & { sourceHandle?: string }).sourceHandle }
+      : {}),
   }));
 
   return {
@@ -193,6 +199,9 @@ export function deserializeWorkflow(schema: WorkflowSchema): {
     source: we.source,
     target: we.target,
     type: "deletable",
+    // Round-trip the condition back to sourceHandle so gate/router nodes
+    // connect to the right handle (true/false or label).
+    ...(we.condition ? { sourceHandle: we.condition, label: we.condition } : {}),
   }));
 
   return { nodes: nodes as unknown as Node[], edges };

@@ -26,7 +26,14 @@ export interface SchemaValidationResult {
   errors: string[];
 }
 
-const VALID_NODE_TYPES = new Set(["input", "agent", "human_gate", "finalize"]);
+const VALID_NODE_TYPES = new Set([
+  "input",
+  "agent",
+  "gate",
+  "router",
+  "human_gate",
+  "finalize",
+]);
 
 export function validateWorkflowSchema(schema: unknown): SchemaValidationResult {
   const errors: string[] = [];

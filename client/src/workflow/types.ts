@@ -5,7 +5,13 @@
 
 // ── Node types ──────────────────────────────────────────────────────
 
-export type NodeType = "input" | "agent" | "human_gate" | "finalize";
+export type NodeType =
+  | "input"
+  | "agent"
+  | "gate"
+  | "router"
+  | "human_gate"
+  | "finalize";
 
 export interface ModelConfig {
   model?: string;
@@ -48,10 +54,26 @@ export interface AgentNodeConfig {
   __editorPosition?: { x: number; y: number };
 }
 
+export interface GateNodeConfig {
+  expression: string;
+  __editorPosition?: { x: number; y: number };
+}
+
+export interface RouterNodeConfig {
+  instructions: string;
+  labels: string[];
+  inputMapping?: Record<string, string>;
+  model?: string;
+  __editorPosition?: { x: number; y: number };
+}
+
 export interface HumanGateNodeConfig {
   channel: string;
   messageTemplate: string;
   decisionValues: string[];
+  timeoutSeconds?: number;
+  approver?: string;
+  icon?: string;
   __editorPosition?: { x: number; y: number };
 }
 
@@ -60,7 +82,13 @@ export interface FinalizeNodeConfig {
   __editorPosition?: { x: number; y: number };
 }
 
-export type NodeConfig = InputNodeConfig | AgentNodeConfig | HumanGateNodeConfig | FinalizeNodeConfig;
+export type NodeConfig =
+  | InputNodeConfig
+  | AgentNodeConfig
+  | GateNodeConfig
+  | RouterNodeConfig
+  | HumanGateNodeConfig
+  | FinalizeNodeConfig;
 
 export interface WorkflowNode {
   id: string;

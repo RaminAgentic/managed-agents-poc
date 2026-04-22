@@ -1,0 +1,121 @@
+{
+  "id": "wf-wealth-intake",
+  "name": "Wealth Management Intake",
+  "version": "1.0",
+  "entryNodeId": "input",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "input",
+      "name": "Client intake",
+      "config": {
+        "requiredFields": ["clientName", "driveFolderUrl"]
+      }
+    },
+    {
+      "id": "doc-router",
+      "type": "router",
+      "name": "Client profile type",
+      "config": {
+        "instructions": "Classify this wealth management intake based on the documents provided. If it looks like a high-net-worth individual (HNW) — typically with tax returns showing >$1M income, brokerage accounts, or trust documents — return 'hnw'. If it looks like a standard retail client, return 'retail'. If there isn't enough info yet, return 'incomplete'.",
+        "labels": ["hnw", "retail", "incomplete"],
+        "inputMapping": {
+          "driveFolderUrl": "$.run.input.driveFolderUrl"
+        },
+        "model": "claude-sonnet-4-6"
+      }
+    },
+    {
+      "id": "hnw-profile",
+      "type": "agent",
+      "name": "HNW profile builder",
+      "modelConfig": { "model": "claude-opus-4-6" },
+      "config": {
+        "instructions": "You are a wealth management onboarding specialist for HNW clients. Read all documents in the Drive folder. Extract and compile: net worth estimate, liquid vs. illiquid split, existing investment accounts, tax situation, trust/estate structures, stated risk tolerance, goals. Produce a clean structured JSON profile. Then post a summary to #wealth-onboarding tagging the assigned portfolio manager for review.",
+        "inputMapping": {
+          "driveFolderUrl": "$.run.input.driveFolderUrl",
+          "clientName": "$.run.input.clientName"
+        },
+        "outputFormat": "json",
+        "timeoutSeconds": 600,
+        "mcpServers": [
+          { "name": "gdrive",     "type": "url", "url": "https://mcp.google.com/drive" },
+          { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" },
+          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive",     "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",      "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "retail-profile",
+      "type": "agent",
+      "name": "Retail profile builder",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "You are a retail wealth onboarding specialist. Read all documents in the Drive folder. Extract the retail profile: income, liquid savings, retirement accounts, risk tolerance, investment goals, time horizon. Populate a Salesforce Contact + Account with the profile. Post a welcome message to #wealth-onboarding.",
+        "inputMapping": {
+          "driveFolderUrl": "$.run.input.driveFolderUrl",
+          "clientName": "$.run.input.clientName"
+        },
+        "outputFormat": "json",
+        "timeoutSeconds": 600,
+        "mcpServers": [
+          { "name": "gdrive",     "type": "url", "url": "https://mcp.google.com/drive" },
+          { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" },
+          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive",     "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",      "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "incomplete-notifier",
+      "type": "agent",
+      "name": "Request missing docs",
+      "modelConfig": { "model": "claude-haiku-4-5-20251001" },
+      "config": {
+        "instructions": "The intake is missing documents. Post a message in the #wealth-onboarding Slack channel listing exactly which document categories are missing (tax returns, ID, investment statements, etc.) and @-mention the client advisor.",
+        "inputMapping": {
+          "clientName": "$.run.input.clientName",
+          "driveFolderUrl": "$.run.input.driveFolderUrl"
+        },
+        "timeoutSeconds": 120,
+        "mcpServers": [
+          { "name": "slack",  "type": "url", "url": "https://mcp.slack.com/mcp" },
+          { "name": "gdrive", "type": "url", "url": "https://mcp.google.com/drive" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",  "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "name": "Finalize",
+      "config": { "summaryFields": ["text"] }
+    }
+  ],
+  "edges": [
+    { "id": "e-in-rt",   "source": "input",     "target": "doc-router" },
+
+    { "id": "e-rt-hnw",  "source": "doc-router", "target": "hnw-profile",         "condition": "hnw"        },
+    { "id": "e-rt-ret",  "source": "doc-router", "target": "retail-profile",      "condition": "retail"     },
+    { "id": "e-rt-inc",  "source": "doc-router", "target": "incomplete-notifier", "condition": "incomplete" },
+
+    { "id": "e-hnw-fi",  "source": "hnw-profile",         "target": "finalize" },
+    { "id": "e-ret-fi",  "source": "retail-profile",      "target": "finalize" },
+    { "id": "e-inc-fi",  "source": "incomplete-notifier", "target": "finalize" }
+  ]
+}

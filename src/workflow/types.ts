@@ -8,7 +8,13 @@
 // ── Node types ──────────────────────────────────────────────────────
 
 /** Supported node types in a workflow graph */
-export type NodeType = "input" | "agent" | "human_gate" | "finalize";
+export type NodeType =
+  | "input"
+  | "agent"
+  | "gate"
+  | "router"
+  | "human_gate"
+  | "finalize";
 
 /** Model configuration for agent nodes */
 export interface ModelConfig {
@@ -57,11 +63,52 @@ export interface AgentNodeConfig {
   skills?: AgentSkill[];
 }
 
+/** Deterministic conditional node. Evaluates `expression` against the run
+ * context and picks one of two outgoing edges. Outgoing edges must have
+ * `condition: "true"` and `condition: "false"` respectively (the UI
+ * enforces this when wiring). */
+export interface GateNodeConfig {
+  /**
+   * JS-like expression evaluated against the context. Allowed references:
+   *   - `input.<field>` — the run's input
+   *   - `steps.<nodeId>.outputs.<field>` — any prior step's output
+   * Example: `steps.reader.outputs.parsed.score > 0.8`
+   */
+  expression: string;
+}
+
+/** LLM-classified routing node. Runs a one-shot Claude call over the
+ * configured input and picks a label from `labels`. Outgoing edges must
+ * carry `condition: "<label>"` to receive the route. */
+export interface RouterNodeConfig {
+  /** System prompt that instructs Claude how to classify. */
+  instructions: string;
+  /** Allowed output labels. The one Claude emits picks the route. */
+  labels: string[];
+  /** Same `$.run.input.*` / `$.steps.*` mapping shape as agent nodes. */
+  inputMapping?: Record<string, string>;
+  /** Optional model override; defaults to a cheap, fast one. */
+  model?: string;
+}
+
 /** Configuration specific to human gate nodes */
 export interface HumanGateNodeConfig {
   channel: string;
   messageTemplate: string;
   decisionValues: string[];
+  /**
+   * How long to wait for a decision before failing the step. Default 600s.
+   */
+  timeoutSeconds?: number;
+  /**
+   * Optional approver identity (Slack user id, display name, or Office
+   * Space character name — used for fixture polish, not enforcement).
+   */
+  approver?: string;
+  /**
+   * Optional icon slug for UI flair (e.g. "red-stapler", "flair-buttons").
+   */
+  icon?: string;
 }
 
 /** Configuration specific to finalize nodes */
@@ -70,7 +117,13 @@ export interface FinalizeNodeConfig {
 }
 
 /** Union of all node configs based on type */
-export type NodeConfig = InputNodeConfig | AgentNodeConfig | HumanGateNodeConfig | FinalizeNodeConfig;
+export type NodeConfig =
+  | InputNodeConfig
+  | AgentNodeConfig
+  | GateNodeConfig
+  | RouterNodeConfig
+  | HumanGateNodeConfig
+  | FinalizeNodeConfig;
 
 /** A node in the workflow graph */
 export interface WorkflowNode {

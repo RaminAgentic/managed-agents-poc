@@ -1,0 +1,179 @@
+{
+  "id": "wf-customer-onboarding",
+  "name": "Customer Onboarding",
+  "version": "1.0",
+  "entryNodeId": "input",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "input",
+      "name": "Customer intake",
+      "config": {
+        "requiredFields": ["customerName", "driveFolderUrl"]
+      }
+    },
+    {
+      "id": "classifier",
+      "type": "agent",
+      "name": "Document classifier",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "You are a document classifier. Given a Google Drive folder URL, list every file in it, identify what each document is (driver's license, passport, W-2, pay stub, utility bill, tax return, ID, other), and return a JSON list. For each file include: { fileId, fileName, docType, confidence (0-1) }. Return ONLY the JSON.",
+        "inputMapping": {
+          "driveFolderUrl": "$.run.input.driveFolderUrl"
+        },
+        "outputFormat": "json",
+        "timeoutSeconds": 300,
+        "mcpServers": [
+          { "name": "gdrive", "type": "url", "url": "https://mcp.google.com/drive" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "identity-extractor",
+      "type": "agent",
+      "name": "Identity extractor",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "You are an identity extraction specialist. You will receive a list of classified documents (see `docs`). Look at the ones classified as identity documents (driver's license, passport, ID). Download each from Google Drive, extract: full name, date of birth, address, document number, expiration. Return JSON: { identity: { fullName, dob, address, idNumber, idType, expiration } }.",
+        "inputMapping": {
+          "docs": "$.steps.classifier.outputs.parsed"
+        },
+        "outputFormat": "json",
+        "timeoutSeconds": 300,
+        "mcpServers": [
+          { "name": "gdrive", "type": "url", "url": "https://mcp.google.com/drive" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "income-extractor",
+      "type": "agent",
+      "name": "Income extractor",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "You are an income verification specialist. You will receive a list of classified documents (see `docs`). Look at W-2s, pay stubs, and tax returns. Download each from Google Drive, extract annual income, employer, employment length, and return JSON: { income: { annualIncome, employer, tenureMonths, documentsReviewed: [fileNames] } }.",
+        "inputMapping": {
+          "docs": "$.steps.classifier.outputs.parsed"
+        },
+        "outputFormat": "json",
+        "timeoutSeconds": 300,
+        "mcpServers": [
+          { "name": "gdrive", "type": "url", "url": "https://mcp.google.com/drive" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "address-extractor",
+      "type": "agent",
+      "name": "Address verifier",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "You are an address verification specialist. You will receive a list of classified documents (see `docs`). Look at utility bills and anything else with an address. Cross-reference addresses across documents and flag any mismatches. Return JSON: { addressVerification: { primaryAddress, otherAddressesFound: [], mismatch: boolean, sources: [fileNames] } }.",
+        "inputMapping": {
+          "docs": "$.steps.classifier.outputs.parsed"
+        },
+        "outputFormat": "json",
+        "timeoutSeconds": 300,
+        "mcpServers": [
+          { "name": "gdrive", "type": "url", "url": "https://mcp.google.com/drive" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "kyc-gate",
+      "type": "gate",
+      "name": "KYC complete?",
+      "config": {
+        "expression": "steps['identity-extractor'].parsed?.identity?.fullName && steps['income-extractor'].parsed?.income?.annualIncome && !steps['address-extractor'].parsed?.addressVerification?.mismatch"
+      }
+    },
+    {
+      "id": "salesforce-writer",
+      "type": "agent",
+      "name": "Salesforce account creator",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "Create a Salesforce Contact + Account from the consolidated customer profile. Populate: Account.Name, Account.BillingStreet/City/Postal, Contact.Name/Email/Phone/Birthdate, Contact.AnnualIncome__c (custom field), Contact.Employer__c, Contact.KycStatus__c = 'Verified'. Link them together. Then post a summary to the #onboarding Slack channel including the new Account ID.",
+        "inputMapping": {
+          "customerName": "$.run.input.customerName",
+          "identity": "$.steps.identity-extractor.outputs.parsed",
+          "income": "$.steps.income-extractor.outputs.parsed",
+          "address": "$.steps.address-extractor.outputs.parsed"
+        },
+        "timeoutSeconds": 300,
+        "mcpServers": [
+          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" },
+          { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",      "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "reject-notifier",
+      "type": "agent",
+      "name": "KYC failure notifier",
+      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "config": {
+        "instructions": "KYC failed. Post a message to the #onboarding Slack channel explaining why (missing ID, address mismatch, or missing income docs) and @-mention the submitter. Tag it as needing manual review.",
+        "inputMapping": {
+          "customerName": "$.run.input.customerName",
+          "identity": "$.steps.identity-extractor.outputs.parsed",
+          "income": "$.steps.income-extractor.outputs.parsed",
+          "address": "$.steps.address-extractor.outputs.parsed"
+        },
+        "timeoutSeconds": 120,
+        "mcpServers": [
+          { "name": "slack", "type": "url", "url": "https://mcp.slack.com/mcp" }
+        ],
+        "tools": [
+          { "type": "agent_toolset_20260401" },
+          { "type": "mcp_toolset", "mcp_server_name": "slack", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ]
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "name": "Finalize",
+      "config": { "summaryFields": ["text"] }
+    }
+  ],
+  "edges": [
+    { "id": "e-in-cls",  "source": "input",      "target": "classifier" },
+
+    { "id": "e-cls-id",  "source": "classifier", "target": "identity-extractor" },
+    { "id": "e-cls-inc", "source": "classifier", "target": "income-extractor" },
+    { "id": "e-cls-adr", "source": "classifier", "target": "address-extractor" },
+
+    { "id": "e-id-kyc",  "source": "identity-extractor", "target": "kyc-gate" },
+    { "id": "e-inc-kyc", "source": "income-extractor",   "target": "kyc-gate" },
+    { "id": "e-adr-kyc", "source": "address-extractor",  "target": "kyc-gate" },
+
+    { "id": "e-kyc-ok",   "source": "kyc-gate", "target": "salesforce-writer", "condition": "true"  },
+    { "id": "e-kyc-fail", "source": "kyc-gate", "target": "reject-notifier",   "condition": "false" },
+
+    { "id": "e-sf-fi",   "source": "salesforce-writer", "target": "finalize" },
+    { "id": "e-rej-fi",  "source": "reject-notifier",   "target": "finalize" }
+  ]
+}

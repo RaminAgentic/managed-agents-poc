@@ -35,10 +35,25 @@ const defaultNodeData: Record<NodeType, () => WorkflowNodeData> = {
     config: { instructions: "", inputMapping: {}, timeoutSeconds: 300, outputFormat: "text" as const },
     modelConfig: { effort: "xhigh" as const },
   }),
+  gate: () => ({
+    name: "Gate",
+    nodeType: "gate",
+    config: { expression: "" },
+  }),
+  router: () => ({
+    name: "Router",
+    nodeType: "router",
+    config: { instructions: "", labels: [], inputMapping: {} },
+  }),
   human_gate: () => ({
     name: "Human Gate",
     nodeType: "human_gate",
-    config: { channel: "", messageTemplate: "", decisionValues: ["approve", "reject"] },
+    config: {
+      channel: "",
+      messageTemplate: "",
+      decisionValues: ["approve", "reject"],
+      timeoutSeconds: 600,
+    },
   }),
   finalize: () => ({
     name: "Finalize",

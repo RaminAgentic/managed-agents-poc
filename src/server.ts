@@ -23,6 +23,7 @@ import { runOrchestrator } from "./agent/orchestrator";
 import workflowRoutes from "./api/workflowRoutes";
 import runRoutes from "./api/runRoutes";
 import slackRoutes from "./api/slackRoutes";
+import approvalRoutes from "./api/approvalRoutes";
 import { mcpHttpHandler } from "./mcp/httpHandler";
 
 // In dev, Vite serves the frontend on 5002 and proxies /api to 5001.
@@ -70,6 +71,9 @@ app.use("/api", runRoutes);
 
 // Slack slash-command trigger (POST /slack/command)
 app.use("/api", slackRoutes);
+
+// Human-gate approval endpoints (GET/POST /approval/:stepId)
+app.use("/api", approvalRoutes);
 
 /**
  * POST /api/chat

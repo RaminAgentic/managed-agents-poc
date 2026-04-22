@@ -23,19 +23,24 @@ import type {
   AgentMcpServer,
   AgentTool,
   AgentSkill,
+  GateNodeConfig,
+  RouterNodeConfig,
   HumanGateNodeConfig,
   ModelConfig,
 } from "./types";
 
 // ── Known MCP server catalog (matches server-side MCP tool description) ──
 const KNOWN_MCP_SERVERS: Array<{ name: string; url: string; label: string }> = [
-  { name: "slack",      label: "Slack",           url: "https://mcp.slack.com/mcp" },
-  { name: "salesforce", label: "Salesforce",      url: "https://mcp.salesforce.com/mcp" },
-  { name: "linear",     label: "Linear",          url: "https://mcp.linear.app/mcp" },
-  { name: "sentry",     label: "Sentry",          url: "https://mcp.sentry.dev/mcp" },
-  { name: "notion",     label: "Notion",          url: "https://mcp.notion.com/mcp" },
-  { name: "github",     label: "GitHub",          url: "https://api.githubcopilot.com/mcp/" },
-  { name: "atlassian",  label: "Atlassian",       url: "https://mcp.atlassian.com/v1/sse" },
+  { name: "slack",       label: "Slack",            url: "https://mcp.slack.com/mcp" },
+  { name: "salesforce",  label: "Salesforce",       url: "https://mcp.salesforce.com/mcp" },
+  { name: "linear",      label: "Linear",           url: "https://mcp.linear.app/mcp" },
+  { name: "sentry",      label: "Sentry",           url: "https://mcp.sentry.dev/mcp" },
+  { name: "notion",      label: "Notion",           url: "https://mcp.notion.com/mcp" },
+  { name: "github",      label: "GitHub",           url: "https://api.githubcopilot.com/mcp/" },
+  { name: "atlassian",   label: "Atlassian",        url: "https://mcp.atlassian.com/v1/sse" },
+  { name: "gdrive",      label: "Google Drive",     url: "https://mcp.google.com/drive" },
+  { name: "gmail",       label: "Gmail",            url: "https://mcp.google.com/gmail" },
+  { name: "gcal",        label: "Google Calendar",  url: "https://mcp.google.com/calendar" },
 ];
 
 const KNOWN_SKILLS: Array<{ id: string; label: string }> = [
@@ -537,11 +542,33 @@ function HumanGateInspector({
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
       <DebouncedTextField
-        label="Channel"
+        label="Slack Channel"
         size="small"
         value={config.channel ?? ""}
         onChange={(val) => onConfigChange({ channel: val })}
+        placeholder="#approvals"
       />
+      <DebouncedTextField
+        label="Approver (display name)"
+        size="small"
+        value={config.approver ?? ""}
+        onChange={(val) => onConfigChange({ approver: val })}
+        placeholder="Bill Lumbergh"
+      />
+      <FormControl size="small">
+        <InputLabel>Icon</InputLabel>
+        <Select
+          label="Icon"
+          value={config.icon ?? ""}
+          onChange={(e) => onConfigChange({ icon: e.target.value as string })}
+        >
+          <MenuItem value=""><em>(default)</em></MenuItem>
+          <MenuItem value="lumbergh">coffee (Lumbergh)</MenuItem>
+          <MenuItem value="red-stapler">red stapler (Milton)</MenuItem>
+          <MenuItem value="flair-buttons">buttons (15 pieces of flair)</MenuItem>
+          <MenuItem value="livingston">briefcase (Livingston)</MenuItem>
+        </Select>
+      </FormControl>
       <DebouncedTextField
         label="Message Template"
         multiline
@@ -550,8 +577,19 @@ function HumanGateInspector({
         size="small"
         value={config.messageTemplate ?? ""}
         onChange={(val) => onConfigChange({ messageTemplate: val })}
+        placeholder="Yeeeeah, if you could just sign the TPS report, that would be greeeat."
+      />
+      <DebouncedTextField
+        label="Timeout (seconds)"
+        type="number"
+        size="small"
+        value={String(config.timeoutSeconds ?? 600)}
+        onChange={(val) => onConfigChange({ timeoutSeconds: parseInt(val) || 600 })}
       />
       <Typography variant="subtitle2" color="text.secondary">Decision Values</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+        Each becomes a button in Slack and an outgoing edge label on this node.
+      </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
         {(config.decisionValues ?? []).map((val) => (
           <Chip
@@ -572,6 +610,126 @@ function HumanGateInspector({
           sx={{ flex: 1 }}
         />
       </Box>
+    </Box>
+  );
+}
+
+function GateInspector({
+  config,
+  onConfigChange,
+}: {
+  config: GateNodeConfig;
+  onConfigChange: (patch: Partial<GateNodeConfig>) => void;
+}) {
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+      <Typography variant="caption" color="text.secondary">
+        Boolean expression — two outgoing edges labeled <code>true</code> and <code>false</code>.
+      </Typography>
+      <DebouncedTextField
+        label="Expression"
+        multiline
+        minRows={2}
+        maxRows={6}
+        size="small"
+        value={config.expression ?? ""}
+        onChange={(val) => onConfigChange({ expression: val })}
+        placeholder="steps.reader.parsed.score > 0.8"
+        sx={{ fontFamily: "monospace" }}
+      />
+      <Typography variant="caption" color="text.disabled" sx={{ fontFamily: "monospace" }}>
+        Scope: input.*, steps.&lt;nodeId&gt;.&lt;field&gt;
+      </Typography>
+    </Box>
+  );
+}
+
+function RouterInspector({
+  config,
+  onConfigChange,
+}: {
+  config: RouterNodeConfig;
+  onConfigChange: (patch: Partial<RouterNodeConfig>) => void;
+}) {
+  const [newLabel, setNewLabel] = useState("");
+
+  const addLabel = () => {
+    const trimmed = newLabel.trim();
+    if (!trimmed) return;
+    const current = config.labels ?? [];
+    if (!current.includes(trimmed)) {
+      onConfigChange({ labels: [...current, trimmed] });
+    }
+    setNewLabel("");
+  };
+
+  const removeLabel = (label: string) => {
+    onConfigChange({ labels: (config.labels ?? []).filter((l) => l !== label) });
+  };
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+      <DebouncedTextField
+        label="Classification instructions"
+        multiline
+        minRows={3}
+        maxRows={8}
+        size="small"
+        value={config.instructions ?? ""}
+        onChange={(val) => onConfigChange({ instructions: val })}
+        placeholder="Classify the request type into one of the provided labels."
+      />
+      <Typography variant="subtitle2" color="text.secondary">Labels</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+        Each label = one outgoing edge. Model picks exactly one.
+      </Typography>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+        {(config.labels ?? []).map((label) => (
+          <Chip
+            key={label}
+            label={label}
+            size="small"
+            onDelete={() => removeLabel(label)}
+          />
+        ))}
+      </Box>
+      <Box sx={{ display: "flex", gap: 0.5 }}>
+        <TextField
+          size="small"
+          placeholder="Add label..."
+          value={newLabel}
+          onChange={(e) => setNewLabel(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addLabel();
+            }
+          }}
+          sx={{ flex: 1 }}
+        />
+      </Box>
+      <DebouncedTextField
+        label="Model (optional)"
+        size="small"
+        value={config.model ?? ""}
+        onChange={(val) => onConfigChange({ model: val })}
+        placeholder="claude-haiku-4-5-20251001"
+      />
+      <DebouncedTextField
+        label="Input Mapping (JSON)"
+        multiline
+        minRows={2}
+        maxRows={6}
+        size="small"
+        value={JSON.stringify(config.inputMapping ?? {}, null, 2)}
+        onChange={(val) => {
+          try {
+            onConfigChange({ inputMapping: JSON.parse(val) });
+          } catch {
+            // Invalid JSON — ignore until valid
+          }
+        }}
+      />
     </Box>
   );
 }
@@ -620,6 +778,8 @@ export default function Inspector({ node, updateNodeData, onClose }: InspectorPr
   const typeColors: Record<string, string> = {
     input: "#2196f3",
     agent: "#7c4dff",
+    gate: "#9c27b0",
+    router: "#0288d1",
     human_gate: "#ed6c02",
     finalize: "#2e7d32",
   };
@@ -666,6 +826,18 @@ export default function Inspector({ node, updateNodeData, onClose }: InspectorPr
             modelConfig={data.modelConfig}
             onConfigChange={handleConfigChange}
             onModelConfigChange={handleModelConfigChange}
+          />
+        )}
+        {nodeType === "gate" && (
+          <GateInspector
+            config={data.config as GateNodeConfig}
+            onConfigChange={handleConfigChange}
+          />
+        )}
+        {nodeType === "router" && (
+          <RouterInspector
+            config={data.config as RouterNodeConfig}
+            onConfigChange={handleConfigChange}
           />
         )}
         {nodeType === "human_gate" && (

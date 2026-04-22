@@ -7,12 +7,16 @@
 import type { NodeType, NodeHandler } from "../types";
 import { runInputNode } from "./inputNodeHandler";
 import { runAgentNode } from "./agentNodeHandler";
+import { runGateNode } from "./gateNodeHandler";
+import { runRouterNode } from "./routerNodeHandler";
 import { runHumanGateNode } from "./humanGateNodeHandler";
 import { runFinalizeNode } from "./finalizeNodeHandler";
 
 const handlerMap: Record<NodeType, NodeHandler> = {
   input: runInputNode,
   agent: runAgentNode,
+  gate: runGateNode,
+  router: runRouterNode,
   human_gate: runHumanGateNode,
   finalize: runFinalizeNode,
 };

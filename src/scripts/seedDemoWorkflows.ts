@@ -20,6 +20,8 @@ const DEMO_FILES = [
   "incidentCommander.json",
   "dealDesk.json",
   "tpsReport.json",
+  "customerOnboarding.json",
+  "wealthIntake.json",
 ];
 
 async function upsertFromFile(filename: string): Promise<void> {
