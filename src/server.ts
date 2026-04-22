@@ -22,6 +22,7 @@ markOrphanedRunsFailed().then((count) => {
 import { runOrchestrator } from "./agent/orchestrator";
 import workflowRoutes from "./api/workflowRoutes";
 import runRoutes from "./api/runRoutes";
+import { mcpHttpHandler } from "./mcp/httpHandler";
 
 // In dev, Vite serves the frontend on 5002 and proxies /api to 5001.
 // In production, Express serves everything (static + API) on 5002.
@@ -32,7 +33,12 @@ const app = express();
 
 // 1. CORS — allow Vite dev server and production origins
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:5002", "http://localhost:5001"],
+  origin: [
+    "http://localhost:5173",
+    "http://localhost:5002",
+    "http://localhost:5001",
+    "https://claude.ai",
+  ],
   credentials: true,
 }));
 
@@ -92,6 +98,12 @@ app.post("/api/chat", async (req: Request, res: Response) => {
       .json({ error: err instanceof Error ? err.message : "unknown error" });
   }
 });
+
+// ── MCP (Streamable HTTP) — for Claude for Work connectors ─────────
+app.get("/mcp", (_req: Request, res: Response) => {
+  res.json({ name: "flow-manager", version: "1.0.0", transport: "streamable-http" });
+});
+app.post("/mcp", mcpHttpHandler);
 
 // --- 404 fallback for /api (must be before the SPA catch-all) ---
 app.use("/api", (_req: Request, res: Response) => {

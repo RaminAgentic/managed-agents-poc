@@ -4,9 +4,9 @@
   "concept": "Bare-bones proof of concept for Claude managed agents — build a simple example following the quickstart docs",
   "path": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
   "projectPath": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
-  "status": "development",
+  "status": "completed",
   "createdAt": "2026-04-22T08:39:52.783Z",
-  "updatedAt": "2026-04-22T17:52:34.564Z",
+  "updatedAt": "2026-04-22T18:07:50.697Z",
   "version": "1.0.0",
   "useCaseNodes": [],
   "requirementNodes": [],
@@ -822,20 +822,20 @@
       "name": "Sprint 13: HTTP MCP Endpoint for Claude for Work",
       "description": "Add a Streamable HTTP MCP endpoint to the Express server so the workflow tools can be registered in Claude for Work (claude.ai web). The stdio subprocess works for Claude Code; this adds an HTTP transport for web-based Claude clients.",
       "priority": "high",
-      "status": "pending",
+      "status": "completed",
       "individualTasks": [
         {
           "id": "task_1776880139600_0_0yke7",
           "title": "Add @modelcontextprotocol/sdk to root package.json and create HTTP MCP handler",
           "description": "Install `@modelcontextprotocol/sdk@^1.29.0` as a dependency in the root `package.json` (the main server package, not the mcp/ sub-package). Then create `src/mcp/httpHandler.ts` that:\n1. Imports `McpServer` from `@modelcontextprotocol/sdk/server/mcp.js` and `StreamableHTTPServerTransport` from `@modelcontextprotocol/sdk/server/streamableHttp.js`\n2. Registers the same 5 tools used in the stdio server: `list_workflows`, `start_workflow`, `get_run_status`, `list_runs`, `create_workflow` — but instead of using the HTTP client from mcp/src/client.ts, call the Prisma/service layer directly (import from `../workflow/persistence` and `../workflow/orchestrator` etc. as needed)\n3. Exports an Express middleware-compatible handler function `mcpHttpHandler` that creates a `StreamableHTTPServerTransport` per request and handles it\n\nRefer to the existing tool implementations in `mcp/src/tools/` for the tool logic, and the existing service layer in `src/workflow/` and `src/api/` for the business logic to call directly.",
-          "status": "pending",
+          "status": "completed",
           "priority": "high"
         },
         {
           "id": "task_1776880139600_1_elcw6",
           "title": "Mount the MCP HTTP endpoint in Express server and verify",
           "description": "In `src/server.ts`, import `mcpHttpHandler` from `./mcp/httpHandler` and mount it at `POST /mcp` BEFORE the `/api` 404 handler:\n\n```ts\napp.post('/mcp', mcpHttpHandler);\n```\n\nAlso add a `GET /mcp` route that returns a simple JSON describing the server (for discoverability):\n```ts\napp.get('/mcp', (_req, res) => res.json({ name: 'flow-manager', version: '1.0.0', transport: 'streamable-http' }));\n```\n\nVerify the endpoint works locally by running a TypeScript check (`npx tsc --noEmit`) and checking the server starts without errors. The endpoint should be reachable at `http://localhost:5001/mcp` in dev and `https://managed-agents-poc.onrender.com/mcp` in production.",
-          "status": "pending",
+          "status": "completed",
           "priority": "high"
         }
       ]

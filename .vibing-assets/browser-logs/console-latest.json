@@ -1,27 +1,20 @@
 {
-  "sessionId": "session_1776880128916",
-  "sessionUrl": "http://localhost:5002",
+  "sessionId": "session_1776881252397",
+  "sessionUrl": "http://localhost:5001",
   "sessionTitle": "Unknown",
-  "lastUpdated": "2026-04-22T17:48:49.221Z",
+  "lastUpdated": "2026-04-22T18:07:32.574Z",
   "logs": [
     {
       "level": "warning",
-      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
-      "timestamp": "2026-04-22T17:48:49.091Z",
-      "line": 14337,
-      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
-    },
-    {
-      "level": "warning",
       "message": "Console capture initialized",
-      "timestamp": "2026-04-22T17:48:49.217Z",
+      "timestamp": "2026-04-22T18:07:32.573Z",
       "line": 8,
       "sourceId": ""
     },
     {
       "level": "warning",
       "message": "Console capture initialized",
-      "timestamp": "2026-04-22T17:48:49.221Z",
+      "timestamp": "2026-04-22T18:07:32.574Z",
       "line": 8,
       "sourceId": ""
     }

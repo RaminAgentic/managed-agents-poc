@@ -1,0 +1,422 @@
+/**
+ * HTTP MCP Handler — Streamable-HTTP transport for Claude for Work connectors.
+ *
+ * Exposes the same 5 Flow Manager tools as the stdio MCP server (mcp/),
+ * but calls the Prisma/service layer directly instead of round-tripping
+ * through the REST API.
+ *
+ * IMPORTANT: Do NOT import from mcp/src/** — that package is ESM-only with
+ * its own tsconfig. All tool schemas are replicated here.
+ *
+ * KEEP IN SYNC with mcp/src/tools/*.ts — tool names, descriptions, and
+ * input schemas must match the stdio versions.
+ */
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import type { Request, Response } from "express";
+import { z } from "zod";
+import crypto from "crypto";
+
+import * as persistence from "../workflow/persistence";
+import { validateWorkflowSchema } from "../workflow/schemaValidator";
+import { executeWorkflow } from "../workflow/executor";
+import { updateRunStatus } from "../workflow/persistence";
+import type { WorkflowSchema } from "../workflow/types";
+
+// ── Tool Schemas ───────────────────────────────────────────────────────
+// Replicated from mcp/src/tools/*.ts — KEEP IN SYNC
+
+const listWorkflowsSchema = z.object({});
+
+const startWorkflowSchema = z.object({
+  workflowId: z.string().min(1).describe("The ID of the workflow to start"),
+  input: z
+    .record(z.unknown())
+    .optional()
+    .default({})
+    .describe("Optional input data for the workflow run"),
+});
+
+const getRunStatusSchema = z.object({
+  runId: z.string().min(1).describe("The ID of the workflow run to check"),
+});
+
+const listRunsSchema = z.object({});
+
+const createWorkflowSchema = z.object({
+  name: z.string().min(1).describe("Name of the workflow"),
+  nodes: z
+    .array(z.record(z.unknown()))
+    .describe(
+      "Array of workflow node objects. Each node needs: { id: string, type: 'input'|'agent'|'human_gate'|'finalize', name: string }. Agent nodes also need: { config: { instructions: string } }. Must include exactly one 'finalize' node."
+    ),
+  edges: z
+    .array(z.record(z.unknown()))
+    .describe(
+      "Array of workflow edge objects. Each edge needs: { from: string, to: string } (node IDs)."
+    ),
+  entryNodeId: z
+    .string()
+    .optional()
+    .describe(
+      "ID of the entry node. Defaults to the first node's ID if not provided."
+    ),
+});
+
+// ── Tool Handlers ──────────────────────────────────────────────────────
+
+type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
+
+async function handleListWorkflows(): Promise<ToolResult> {
+  try {
+    const workflows = await persistence.listWorkflows();
+
+    if (workflows.length === 0) {
+      return { content: [{ type: "text", text: "No workflows found." }] };
+    }
+
+    const lines = workflows.map(
+      (w) => `- **${w.name}** (id: ${w.id}, version: ${w.version})`
+    );
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Found ${workflows.length} workflow(s):\n\n${lines.join("\n")}`,
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [{ type: "text", text: `Error listing workflows: ${(err as Error).message}` }],
+      isError: true,
+    };
+  }
+}
+
+async function handleStartWorkflow(
+  input: z.infer<typeof startWorkflowSchema>
+): Promise<ToolResult> {
+  try {
+    // Load the workflow
+    const workflow = await persistence.getWorkflow(input.workflowId);
+    if (!workflow) {
+      return {
+        content: [{ type: "text", text: `Error: Workflow '${input.workflowId}' not found.` }],
+        isError: true,
+      };
+    }
+
+    // Parse and validate the schema
+    const schema = JSON.parse(workflow.schema_json) as WorkflowSchema;
+    const validation = validateWorkflowSchema(schema);
+    if (!validation.valid) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: Stored workflow schema is invalid: ${validation.errors.join(", ")}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    // Create the run record
+    const runInput = input.input && typeof input.input === "object" ? input.input : {};
+    const runId = await persistence.createWorkflowRun(input.workflowId, runInput);
+
+    // Feature gate: check env var (mirrors runRoutes.ts behavior)
+    if (process.env.ENABLE_WORKFLOW_EXECUTOR === "false") {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Workflow run created (executor disabled).\n\n- **Run ID**: ${runId}\n- **Status**: pending\n\nNote: Executor is disabled via ENABLE_WORKFLOW_EXECUTOR=false.`,
+          },
+        ],
+      };
+    }
+
+    // Fire-and-forget — mirrors runRoutes.ts exactly
+    executeWorkflow(runId, schema, runInput).catch(async (err) => {
+      console.error(`[mcp] Unhandled error in run ${runId}:`, err);
+      try {
+        await updateRunStatus(runId, "failed");
+      } catch (persistErr) {
+        console.error(`[mcp] Failed to mark run ${runId} as failed:`, persistErr);
+      }
+    });
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Workflow run started successfully!\n\n- **Run ID**: ${runId}\n- **Status**: pending\n\nUse \`get_run_status\` with run ID "${runId}" to monitor progress.`,
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [{ type: "text", text: `Error starting workflow: ${(err as Error).message}` }],
+      isError: true,
+    };
+  }
+}
+
+async function handleGetRunStatus(
+  input: z.infer<typeof getRunStatusSchema>
+): Promise<ToolResult> {
+  try {
+    const detail = await persistence.getWorkflowRunWithDetails(input.runId);
+    if (!detail) {
+      return {
+        content: [{ type: "text", text: `Error: Run '${input.runId}' not found.` }],
+        isError: true,
+      };
+    }
+
+    // Compute progress from steps
+    const totalSteps = detail.steps?.length ?? 0;
+    const completedSteps = detail.steps?.filter(
+      (s) => s.status === "completed"
+    ).length ?? 0;
+    const progress =
+      totalSteps > 0 ? `${completedSteps}/${totalSteps} steps` : "No steps yet";
+
+    // Get last 5 events as logs, truncating large payloads
+    const recentEvents = (detail.events ?? []).slice(-5).map((evt) => {
+      let payload = evt.payload;
+      if (payload && payload.length > 1024) {
+        payload = payload.slice(0, 1024) + "... (truncated)";
+      }
+      return `[${evt.event_type}] ${payload ?? ""}`;
+    });
+
+    const parts = [
+      `**Run ID**: ${detail.run.id}`,
+      `**Status**: ${detail.run.status}`,
+      `**Progress**: ${progress}`,
+    ];
+
+    if (detail.run.started_at) {
+      parts.push(`**Started**: ${new Date(detail.run.started_at).toLocaleString()}`);
+    }
+    if (detail.run.completed_at) {
+      parts.push(`**Completed**: ${new Date(detail.run.completed_at).toLocaleString()}`);
+    }
+
+    if (recentEvents.length > 0) {
+      parts.push("", "**Recent logs:**");
+      recentEvents.forEach((log) => parts.push(`  ${log}`));
+    }
+
+    return {
+      content: [{ type: "text", text: parts.join("\n") }],
+    };
+  } catch (err) {
+    return {
+      content: [{ type: "text", text: `Error getting run status: ${(err as Error).message}` }],
+      isError: true,
+    };
+  }
+}
+
+async function handleListRuns(): Promise<ToolResult> {
+  try {
+    const allRuns = await persistence.listRuns(50);
+
+    // Cap to 10 most recent — matches stdio behavior
+    const runs = allRuns.slice(0, 10);
+
+    if (runs.length === 0) {
+      return { content: [{ type: "text", text: "No workflow runs found." }] };
+    }
+
+    const lines = runs.map(
+      (r) =>
+        `- **${r.workflow_name ?? r.workflow_id}** — Run \`${r.id}\` — Status: ${r.status} — ${new Date(r.created_at).toLocaleString()}`
+    );
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Most recent ${runs.length} run(s):\n\n${lines.join("\n")}`,
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [{ type: "text", text: `Error listing runs: ${(err as Error).message}` }],
+      isError: true,
+    };
+  }
+}
+
+async function handleCreateWorkflow(
+  input: z.infer<typeof createWorkflowSchema>
+): Promise<ToolResult> {
+  try {
+    // Auto-generate boilerplate — mirrors mcp/src/client.ts::createWorkflow
+    const resolvedEntryNodeId =
+      input.entryNodeId ??
+      (input.nodes.length > 0 ? String(input.nodes[0].id ?? "node-0") : "node-0");
+
+    const flowId = `wf-${Date.now().toString(36)}`;
+
+    const schema = {
+      schemaVersion: "1.0",
+      id: flowId,
+      name: input.name,
+      entryNodeId: resolvedEntryNodeId,
+      nodes: input.nodes,
+      edges: input.edges,
+    };
+
+    // Validate the assembled schema
+    const validation = validateWorkflowSchema(schema);
+    if (!validation.valid) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: Invalid workflow schema: ${validation.errors.join(", ")}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    // Normalize edge field names (source/target) — mirrors workflowRoutes.ts
+    const normalizedSchema = { ...schema };
+    if (Array.isArray(normalizedSchema.edges)) {
+      normalizedSchema.edges = (normalizedSchema.edges as Array<Record<string, unknown>>).map(
+        (edge) => ({
+          ...edge,
+          source: (edge as Record<string, unknown>).source ?? (edge as Record<string, unknown>).from,
+          target: (edge as Record<string, unknown>).target ?? (edge as Record<string, unknown>).to,
+        })
+      );
+    }
+
+    const schemaJson = JSON.stringify(normalizedSchema);
+
+    // Use the schema's id as the DB id — same as workflowRoutes.ts POST handler
+    const id = flowId;
+    await persistence.createWorkflow(id, input.name.trim(), schemaJson);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Workflow created successfully!\n\n- **Name**: ${input.name}\n- **ID**: ${id}\n- **Version**: 1\n\nYou can now start this workflow using \`start_workflow\` with ID "${id}".`,
+        },
+      ],
+    };
+  } catch (err) {
+    const message = (err as Error).message;
+    // Handle duplicate ID
+    if (message.includes("Unique constraint")) {
+      return {
+        content: [
+          { type: "text", text: "Error: Workflow with this ID already exists. Please try again." },
+        ],
+        isError: true,
+      };
+    }
+    return {
+      content: [{ type: "text", text: `Error creating workflow: ${message}` }],
+      isError: true,
+    };
+  }
+}
+
+// ── MCP Server Factory ─────────────────────────────────────────────────
+
+export function createMcpServer(): McpServer {
+  const server = new McpServer({ name: "flow-manager", version: "1.0.0" });
+
+  // ─── Tool: list_workflows ──────────────────────────────────────────
+  server.tool(
+    "list_workflows",
+    "List all saved workflows from the Flow Manager. Returns workflow names and IDs.",
+    listWorkflowsSchema.shape,
+    async () => handleListWorkflows()
+  );
+
+  // ─── Tool: start_workflow ──────────────────────────────────────────
+  server.tool(
+    "start_workflow",
+    "Start a workflow run. Requires the workflow ID and optional input data. Returns the new run ID.",
+    startWorkflowSchema.shape,
+    async (input) => handleStartWorkflow(input)
+  );
+
+  // ─── Tool: get_run_status ──────────────────────────────────────────
+  server.tool(
+    "get_run_status",
+    "Get the status, progress, and recent logs for a workflow run.",
+    getRunStatusSchema.shape,
+    async (input) => handleGetRunStatus(input)
+  );
+
+  // ─── Tool: list_runs ──────────────────────────────────────────────
+  server.tool(
+    "list_runs",
+    "List the 10 most recent workflow runs with their status.",
+    listRunsSchema.shape,
+    async () => handleListRuns()
+  );
+
+  // ─── Tool: create_workflow ─────────────────────────────────────────
+  server.tool(
+    "create_workflow",
+    "Create a new workflow definition with a name, nodes, and edges. The tool handles wrapping into the correct schema format.",
+    createWorkflowSchema.shape,
+    async (input) => handleCreateWorkflow(input)
+  );
+
+  console.log("[mcp-http] McpServer created with 5 tools (direct service layer)");
+
+  return server;
+}
+
+// ── Express Handler ────────────────────────────────────────────────────
+
+/**
+ * Stateless Streamable-HTTP handler.
+ *
+ * Creates a fresh McpServer + StreamableHTTPServerTransport per request.
+ * This matches the MCP SDK "Without Session Management (Stateless)" example.
+ * Safe because tool registration is cheap and stateless requests have no
+ * cross-request state to preserve.
+ */
+export async function mcpHttpHandler(req: Request, res: Response): Promise<void> {
+  const server = createMcpServer();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined, // stateless — no session tracking
+    enableJsonResponse: true,      // Express already parsed JSON body
+  });
+
+  // Prevent leaks if client aborts
+  res.on("close", () => {
+    transport.close().catch(() => {});
+    server.close().catch(() => {});
+  });
+
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    console.error("[mcpHttpHandler] error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({
+        jsonrpc: "2.0",
+        error: { code: -32603, message: "Internal MCP error" },
+        id: null,
+      });
+    }
+  }
+}
