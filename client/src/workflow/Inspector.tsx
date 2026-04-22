@@ -130,11 +130,18 @@ function AgentInspector({
         value={config.instructions ?? ""}
         onChange={(val) => onConfigChange({ instructions: val })}
       />
+      <DebouncedTextField
+        label="Agent Ref"
+        size="small"
+        value={config.agentRef ?? ""}
+        onChange={(val) => onConfigChange({ agentRef: val })}
+        placeholder="e.g. research-agent"
+      />
       <FormControl size="small">
         <InputLabel>Effort</InputLabel>
         <Select
           label="Effort"
-          value={modelConfig?.effort ?? "high"}
+          value={modelConfig?.effort ?? "xhigh"}
           onChange={(e) => onModelConfigChange({ effort: e.target.value as ModelConfig["effort"] })}
         >
           <MenuItem value="low">Low</MenuItem>

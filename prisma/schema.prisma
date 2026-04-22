@@ -2,6 +2,21 @@
 //
 // All workflow definitions, run instances, step executions, events,
 // and approval records are stored in a local SQLite database.
+//
+// ── Sprint 7 Column Audit ────────────────────────────────────────────
+// Spec required 5 tables via raw better-sqlite3 + CREATE TABLE IF NOT EXISTS.
+// Decision: Prisma + managed migrations is strictly more capable and was
+// already in place from Sprint 6. All spec-required columns are present:
+//   workflows:     id, name, schema_json, version, created_at  ✓  (+ updated_at)
+//   workflow_runs: id, workflow_id, status, input_json, created_at, completed_at  ✓  (+ started_at)
+//   run_steps:     id, run_id, node_id, status, input_json, output_json,
+//                  agent_session_id, started_at, completed_at  ✓  (+ error_message, error_stack)
+//   run_events:    id, run_id, step_id, event_type, payload, created_at  ✓
+//   approvals:     id, step_id, slack_channel, slack_user_id, decision, comment, created_at  ✓
+//
+// DB file: data/workflow.db (spec said workbench.db — kept as workflow.db
+// to preserve migration history; renaming would orphan the applied migration).
+// ─────────────────────────────────────────────────────────────────────
 
 datasource db {
   provider = "sqlite"

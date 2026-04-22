@@ -71,7 +71,15 @@ router.post("/workflows", async (req: Request, res: Response) => {
     const schemaJson = JSON.stringify(normalizedSchema);
 
     await createWorkflow(id, name.trim(), schemaJson);
-    res.status(201).json({ id, name: name.trim(), version: 1 });
+
+    // Return full created record so clients don't need a follow-up GET
+    res.status(201).json({
+      id,
+      name: name.trim(),
+      version: 1,
+      schema: normalizedSchema,
+      createdAt: new Date().toISOString(),
+    });
   } catch (err: unknown) {
     console.error("[workflowRoutes] POST /workflows error:", err);
     const message = err instanceof Error ? err.message : "Unknown error";

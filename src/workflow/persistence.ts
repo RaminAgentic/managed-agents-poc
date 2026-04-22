@@ -49,6 +49,11 @@ export interface WorkflowRunRow {
   created_at: string;
 }
 
+/** Extended run row that includes the workflow name (for list views). */
+export interface WorkflowRunWithName extends WorkflowRunRow {
+  workflow_name: string;
+}
+
 export interface RunStepRow {
   id: string;
   run_id: string;
@@ -342,13 +347,18 @@ export async function getWorkflowRunWithDetails(id: string): Promise<{
 
 /**
  * List recent runs, newest first. Limited to 50 by default.
+ * Includes the workflow name for each run (used by GET /runs list view).
  */
-export async function listRuns(limit = 50): Promise<WorkflowRunRow[]> {
+export async function listRuns(limit = 50): Promise<WorkflowRunWithName[]> {
   const rows = await prisma.workflowRun.findMany({
     orderBy: { createdAt: "desc" },
     take: limit,
+    include: { workflow: { select: { name: true } } },
   });
-  return rows.map(toWorkflowRunRow);
+  return rows.map((r) => ({
+    ...toWorkflowRunRow(r),
+    workflow_name: r.workflow.name,
+  }));
 }
 
 /**

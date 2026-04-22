@@ -80,7 +80,24 @@
       "tasksCompleted": 0,
       "totalTasks": 5,
       "endedAt": "2026-04-22T12:53:53.693Z"
+    },
+    {
+      "sessionId": "session_sprint_1776859448568_hsrgr97pa_1776862494661",
+      "sprintId": "sprint_1776859448568_hsrgr97pa",
+      "status": "running",
+      "startedAt": "2026-04-22T12:54:54.661Z",
+      "tasksCompleted": 0,
+      "totalTasks": 3
+    },
+    {
+      "sessionId": "session_sprint_1776859475690_olb7r2ol1_1776864336351",
+      "sprintId": "sprint_1776859475690_olb7r2ol1",
+      "status": "completed",
+      "startedAt": "2026-04-22T13:25:36.351Z",
+      "tasksCompleted": 0,
+      "totalTasks": 5,
+      "endedAt": "2026-04-22T13:40:48.152Z"
     }
   ],
-  "lastUpdated": "2026-04-22T12:53:53.707Z"
+  "lastUpdated": "2026-04-22T13:40:48.160Z"
 }

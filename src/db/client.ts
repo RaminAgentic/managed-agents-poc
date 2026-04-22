@@ -9,4 +9,6 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// Named export so consumers can `import { prisma }` OR `import prisma`.
+export { prisma };
 export default prisma;

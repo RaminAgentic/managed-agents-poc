@@ -30,7 +30,7 @@ const defaultNodeData: Record<NodeType, () => WorkflowNodeData> = {
     name: "Agent",
     nodeType: "agent",
     config: { instructions: "", inputMapping: {}, timeoutSeconds: 300, outputFormat: "text" as const },
-    modelConfig: { effort: "high" as const },
+    modelConfig: { effort: "xhigh" as const },
   }),
   human_gate: () => ({
     name: "Human Gate",

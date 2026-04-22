@@ -40,7 +40,7 @@ Step outputs are in `docs/project-plan/`. Read these files for detailed project 
 
 - **Concept:** `docs/project-plan/concept.md` - Bare-bones proof of concept for Claude managed agents — buil...
 - **Design:** `docs/project-plan/design.md` - modern design, ocean colors, mui
-- **Sprint Plan:** `docs/project-plan/sprint-plan.md` - 12 sprints planned
+- **Sprint Plan:** `docs/project-plan/sprint-plan.md` - 9 sprints planned
 
 ## Active Skills & Expertise
 

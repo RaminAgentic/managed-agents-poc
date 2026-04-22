@@ -20,6 +20,7 @@ export interface InputNodeConfig {
 
 export interface AgentNodeConfig {
   instructions: string;
+  agentRef?: string;
   inputMapping?: Record<string, string>;
   timeoutSeconds?: number;
   outputFormat?: "text" | "json";

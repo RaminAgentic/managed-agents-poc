@@ -101,6 +101,7 @@ router.get("/runs", async (_req: Request, res: Response) => {
       runs: runs.map((r) => ({
         id: r.id,
         workflowId: r.workflow_id,
+        workflowName: r.workflow_name,
         status: r.status,
         createdAt: r.created_at,
       })),
