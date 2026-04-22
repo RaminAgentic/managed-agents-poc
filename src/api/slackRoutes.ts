@@ -102,6 +102,12 @@ function verifySlackSignature(
     sigBuf.length !== computedBuf.length ||
     !crypto.timingSafeEqual(sigBuf, computedBuf)
   ) {
+    console.warn(
+      `[slackRoutes] signature mismatch — bodyLen=${rawBody.length}, ` +
+        `secretLen=${signingSecret.length}, ` +
+        `got=${signature.slice(0, 12)}..., ` +
+        `computed=${computed.slice(0, 12)}...`
+    );
     res.status(401).json({ error: "Invalid Slack signature" });
     return;
   }
