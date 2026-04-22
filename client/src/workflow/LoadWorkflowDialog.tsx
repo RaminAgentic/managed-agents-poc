@@ -66,7 +66,7 @@ export default function LoadWorkflowDialog({ open, onClose, onLoad }: LoadWorkfl
               <ListItemButton key={wf.id} onClick={() => handleSelect(wf)}>
                 <ListItemText
                   primary={wf.name}
-                  secondary={`ID: ${wf.id} | Created: ${new Date(wf.created_at).toLocaleString()}`}
+                  secondary={`ID: ${wf.id} | Created: ${new Date(wf.createdAt).toLocaleString()}`}
                 />
               </ListItemButton>
             ))}

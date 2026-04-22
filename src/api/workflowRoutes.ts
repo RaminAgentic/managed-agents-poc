@@ -11,12 +11,42 @@ import crypto from "crypto";
 import { validateWorkflowSchema } from "../workflow/schemaValidator";
 import {
   createWorkflow,
+  updateWorkflow,
   getWorkflow,
   listWorkflows,
   getRunsByWorkflowId,
 } from "../workflow/persistence";
 
 const router = Router();
+
+/**
+ * Shared schema normalization — called by both POST and PUT handlers
+ * to ensure consistent edge/field naming in the DB.
+ */
+function normalizeSchema(schema: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...schema };
+
+  // Normalize edge field names: from/to → source/target
+  // The executor and React Flow use source/target internally;
+  // the validator accepts both from/to and source/target.
+  if (Array.isArray(normalized.edges)) {
+    normalized.edges = (normalized.edges as Array<Record<string, unknown>>).map((edge) => ({
+      ...edge,
+      source: edge.source ?? edge.from,
+      target: edge.target ?? edge.to,
+    }));
+  }
+
+  // Normalize top-level fields: flowId → id, schemaVersion → version
+  if (normalized.flowId && !normalized.id) {
+    normalized.id = normalized.flowId;
+  }
+  if (normalized.schemaVersion && !normalized.version) {
+    normalized.version = normalized.schemaVersion;
+  }
+
+  return normalized;
+}
 
 /**
  * POST /api/workflows
@@ -44,24 +74,7 @@ router.post("/workflows", async (req: Request, res: Response) => {
       return;
     }
 
-    // Normalize edge field names: from/to → source/target
-    // The executor and React Flow use source/target internally;
-    // the validator accepts both from/to and source/target.
-    const normalizedSchema = { ...schema as Record<string, unknown> };
-    if (Array.isArray(normalizedSchema.edges)) {
-      normalizedSchema.edges = (normalizedSchema.edges as Array<Record<string, unknown>>).map((edge) => ({
-        ...edge,
-        source: edge.source ?? edge.from,
-        target: edge.target ?? edge.to,
-      }));
-    }
-    // Normalize top-level fields: flowId → id, schemaVersion → version
-    if (normalizedSchema.flowId && !normalizedSchema.id) {
-      normalizedSchema.id = normalizedSchema.flowId;
-    }
-    if (normalizedSchema.schemaVersion && !normalizedSchema.version) {
-      normalizedSchema.version = normalizedSchema.schemaVersion;
-    }
+    const normalizedSchema = normalizeSchema(schema as Record<string, unknown>);
 
     // Use schema's flowId/id as the DB id, or generate one
     const flowId = normalizedSchema.flowId ?? normalizedSchema.id;
@@ -86,6 +99,65 @@ router.post("/workflows", async (req: Request, res: Response) => {
     // Handle duplicate ID (Prisma unique constraint)
     if (message.includes("Unique constraint")) {
       res.status(409).json({ error: "Workflow with this ID already exists" });
+      return;
+    }
+    res.status(500).json({ error: message });
+  }
+});
+
+/**
+ * PUT /api/workflows/:id
+ * Body: { name: string, schema: object }
+ *
+ * Updates an existing workflow definition. Returns 404 if the workflow
+ * does not exist, 400 if the schema is invalid.
+ */
+router.put("/workflows/:id", async (req: Request, res: Response) => {
+  try {
+    const { name, schema } = req.body;
+
+    if (!name || typeof name !== "string") {
+      res.status(400).json({ error: "'name' is required and must be a string" });
+      return;
+    }
+    if (!schema || typeof schema !== "object") {
+      res.status(400).json({ error: "'schema' is required and must be an object" });
+      return;
+    }
+
+    // Validate the workflow schema with strict rules
+    const validation = validateWorkflowSchema(schema);
+    if (!validation.valid) {
+      res.status(400).json({ error: "Invalid workflow schema", details: validation.errors });
+      return;
+    }
+
+    // Check existence first
+    const existing = await getWorkflow(req.params.id);
+    if (!existing) {
+      res.status(404).json({ error: "Workflow not found" });
+      return;
+    }
+
+    const normalizedSchema = normalizeSchema(schema as Record<string, unknown>);
+    const schemaJson = JSON.stringify(normalizedSchema);
+
+    const updated = await updateWorkflow(req.params.id, name.trim(), schemaJson);
+
+    res.status(200).json({
+      id: updated.id,
+      name: updated.name,
+      version: updated.version,
+      schema: normalizedSchema,
+      createdAt: updated.created_at,
+      updatedAt: updated.updated_at,
+    });
+  } catch (err: unknown) {
+    console.error("[workflowRoutes] PUT /workflows/:id error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    // Prisma P2025: Record not found (race condition between existence check and update)
+    if (message.includes("Record to update not found") || message.includes("P2025")) {
+      res.status(404).json({ error: "Workflow not found" });
       return;
     }
     res.status(500).json({ error: message });

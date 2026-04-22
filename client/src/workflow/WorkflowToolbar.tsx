@@ -15,7 +15,7 @@ import AddIcon from "@mui/icons-material/Add";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import { validateWorkflow } from "./validate";
 import { serializeWorkflow } from "./serialize";
-import { saveWorkflow } from "../api/workflows";
+import { saveWorkflow, updateWorkflow } from "../api/workflows";
 import LoadWorkflowDialog from "./LoadWorkflowDialog";
 import RunInputDialog from "./RunInputDialog";
 import { deserializeWorkflow } from "./serialize";
@@ -65,9 +65,12 @@ export default function WorkflowToolbar({ nodes, edges, setNodes, setEdges }: Wo
         id: workflowId ?? undefined,
         name: workflowName.trim(),
       });
-      const result = await saveWorkflow(schema, workflowName.trim());
+      const result = workflowId
+        ? await updateWorkflow(workflowId, schema, workflowName.trim())
+        : await saveWorkflow(schema, workflowName.trim());
       setWorkflowId(result.id);
-      setToast({ open: true, message: `Workflow saved: ${result.name}`, severity: "success" });
+      const action = workflowId ? "updated" : "saved";
+      setToast({ open: true, message: `Workflow ${action}: ${result.name}`, severity: "success" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setToast({ open: true, message, severity: "error" });

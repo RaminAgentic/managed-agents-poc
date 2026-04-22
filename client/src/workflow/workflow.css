@@ -1,0 +1,28 @@
+/* Remove default node wrapper background so MUI Paper renders cleanly */
+.react-flow__node {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+/* Remove selection outline - MUI Paper handles selected state visually */
+.react-flow__node.selected,
+.react-flow__node:focus,
+.react-flow__node.selected:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Style connection handles */
+.react-flow__handle {
+  width: 10px !important;
+  height: 10px !important;
+  border: 2px solid white !important;
+  border-radius: 50% !important;
+}
+
+/* Smooth edges */
+.react-flow__edge-path {
+  stroke-width: 2;
+}

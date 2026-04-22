@@ -9,6 +9,7 @@ import {
   Controls,
   Background,
   BackgroundVariant,
+  MarkerType,
   type Connection,
   type Node,
   type Edge,
@@ -19,6 +20,7 @@ import NodePalette from "./NodePalette";
 import Inspector from "./Inspector";
 import WorkflowToolbar from "./WorkflowToolbar";
 import type { NodeType, WorkflowNodeData } from "./types";
+import "./workflow.css";
 
 const defaultNodeData: Record<NodeType, () => WorkflowNodeData> = {
   input: () => ({
@@ -131,6 +133,12 @@ function EditorCanvas() {
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
+            defaultEdgeOptions={{
+              type: 'smoothstep',
+              style: { stroke: '#94a3b8', strokeWidth: 2 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
+            }}
+            connectionLineStyle={{ stroke: '#94a3b8', strokeWidth: 2 }}
             fitView
             deleteKeyCode={["Backspace", "Delete"]}
           >

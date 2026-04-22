@@ -277,6 +277,22 @@ export async function createWorkflow(
 }
 
 /**
+ * Update an existing workflow definition (name + schema).
+ * @returns The updated workflow row.
+ */
+export async function updateWorkflow(
+  id: string,
+  name: string,
+  schemaJson: string
+): Promise<WorkflowRow> {
+  const w = await prisma.workflow.update({
+    where: { id },
+    data: { name, schemaJson, updatedAt: new Date() },
+  });
+  return toWorkflowRow(w);
+}
+
+/**
  * Find a workflow by ID.
  */
 export async function getWorkflow(id: string): Promise<WorkflowRow | undefined> {

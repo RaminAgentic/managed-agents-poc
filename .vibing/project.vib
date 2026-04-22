@@ -4,9 +4,9 @@
   "concept": "Bare-bones proof of concept for Claude managed agents — build a simple example following the quickstart docs",
   "path": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
   "projectPath": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
-  "status": "development",
+  "status": "completed",
   "createdAt": "2026-04-22T08:39:52.783Z",
-  "updatedAt": "2026-04-22T14:00:30.529Z",
+  "updatedAt": "2026-04-22T14:22:44.012Z",
   "version": "1.0.0",
   "useCaseNodes": [],
   "requirementNodes": [],
@@ -667,20 +667,34 @@
           "status": "completed",
           "priority": "medium"
         }
-      ]
+      ],
+      "codeReview": {
+        "summary": "Review error: Expected property name or '}' in JSON at position 2 (line 1 column 3)",
+        "totalIssues": 0,
+        "issuesByPriority": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        },
+        "issueIds": [],
+        "reviewerModel": "haiku",
+        "noIssuesFound": true,
+        "reviewedAt": "2026-04-22T14:03:45.996Z"
+      }
     },
     {
       "id": "fix-sprint_1776859475690_olb7r2ol1-1776865439832",
       "name": "Fix: Sprint 7: React Flow Visual Workflow Editor",
       "description": "Auto-created to address 1 critical/high priority issue(s) from code review",
       "priority": "high",
-      "status": "pending",
+      "status": "completed",
       "individualTasks": [
         {
           "id": "fix-task-1776865439838-0",
           "title": "Fix: Re-saving a workflow fails with 409 Conflict",
           "description": "After the first save, WorkflowToolbar stores the returned workflow ID in state (line 69: setWorkflowId(result.id)). On subsequent saves, this ID is passed to serializeWorkflow (line 65: id: workflowId) and included in the POST /api/workflows body. The server extracts this ID (workflowRoutes.ts line 67-68) and calls createWorkflow() which does a Prisma create — hitting a unique constraint violation, returning 409. There is no PUT/PATCH update endpoint on the server. The user sees 'Workflow with this ID already exists' error toast every time they edit and re-save.\n\nFile: client/src/workflow/WorkflowToolbar.tsx",
-          "status": "pending",
+          "status": "completed",
           "priority": "high",
           "fromIssue": "issue_review_1776865439727_0",
           "relevantFiles": [
@@ -795,10 +809,11 @@
   "currentWizardStep": 1,
   "projectType": "poc",
   "autopilot": {
-    "active": true,
-    "paused": true,
+    "active": false,
+    "paused": false,
     "currentStep": 1,
-    "startedAt": "2026-04-22T13:24:46.334Z"
+    "startedAt": "2026-04-22T13:24:46.334Z",
+    "stoppedAt": "2026-04-22T14:01:55.678Z"
   },
   "autopilotJournal": {
     "runs": [
@@ -877,14 +892,16 @@
       {
         "id": "moa349z2",
         "startedAt": "2026-04-22T13:24:46.334Z",
-        "outcome": "running",
+        "outcome": "completed",
         "templateId": "direct-vibe-v1",
         "fromStep": 1,
         "steps": {},
         "stepOrder": [],
         "pauses": [
           {
-            "pausedAt": "2026-04-22T13:46:39.192Z"
+            "pausedAt": "2026-04-22T13:46:39.192Z",
+            "resumedAt": "2026-04-22T14:01:55.274Z",
+            "durationMs": 916082
           }
         ],
         "metrics": {
@@ -898,10 +915,13 @@
           "codeReviewsPerformed": 0,
           "codeReviewIssuesTotal": 0,
           "fixSprintsCreated": 0
-        }
+        },
+        "endedAt": "2026-04-22T14:01:55.678Z",
+        "durationMs": 2229344,
+        "toStep": 1
       }
     ],
-    "activeRunId": "moa349z2"
+    "activeRunId": null
   },
   "designSystem": "modern",
   "colorScheme": "ocean",

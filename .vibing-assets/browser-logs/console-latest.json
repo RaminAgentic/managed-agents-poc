@@ -2,7 +2,7 @@
   "sessionId": "session_1776865273262",
   "sessionUrl": "",
   "sessionTitle": "Browser",
-  "lastUpdated": "2026-04-22T13:59:33.242Z",
+  "lastUpdated": "2026-04-22T14:21:49.095Z",
   "logs": [
     {
       "level": "log",
@@ -100,6 +100,923 @@
       "message": "[vite] hot updated: /src/pages/RunDetailPage.tsx",
       "timestamp": "2026-04-22T13:59:33.242Z",
       "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:01:37.806Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:01:37.806Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowEditor.tsx",
+      "timestamp": "2026-04-22T14:17:47.693Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowEditor.tsx",
+      "timestamp": "2026-04-22T14:17:47.693Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:17:48.320Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:17:48.320Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:17:48.320Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowEditor.tsx",
+      "timestamp": "2026-04-22T14:17:52.529Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowEditor.tsx",
+      "timestamp": "2026-04-22T14:17:52.531Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowEditor.tsx",
+      "timestamp": "2026-04-22T14:17:52.531Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowEditor.tsx",
+      "timestamp": "2026-04-22T14:17:56.987Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowEditor.tsx",
+      "timestamp": "2026-04-22T14:17:56.988Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowEditor.tsx",
+      "timestamp": "2026-04-22T14:17:56.988Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:18:11.980Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:18:11.981Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:18:11.981Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:18:11.982Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:18:11.982Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:18:11.982Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:18:12.022Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:18:12.022Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:18:12.022Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.118Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.118Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.118Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.119Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.119Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.119Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.119Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.119Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:18:12.119Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:18:49.152Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:18:49.153Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:18:49.153Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/LoadWorkflowDialog.tsx",
+      "timestamp": "2026-04-22T14:18:49.154Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/LoadWorkflowDialog.tsx",
+      "timestamp": "2026-04-22T14:18:49.154Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/LoadWorkflowDialog.tsx",
+      "timestamp": "2026-04-22T14:18:49.154Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/LoadWorkflowDialog.tsx",
+      "timestamp": "2026-04-22T14:18:57.494Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/LoadWorkflowDialog.tsx",
+      "timestamp": "2026-04-22T14:18:57.495Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/LoadWorkflowDialog.tsx",
+      "timestamp": "2026-04-22T14:18:57.495Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:19:08.374Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:19:08.375Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:19:08.375Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:19:13.790Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:19:13.790Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] hot updated: /src/workflow/WorkflowToolbar.tsx",
+      "timestamp": "2026-04-22T14:19:13.790Z",
+      "line": 906,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "[vite] server connection lost. Polling for restart...",
+      "timestamp": "2026-04-22T14:20:14.202Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "[vite] server connection lost. Polling for restart...",
+      "timestamp": "2026-04-22T14:20:14.203Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "[vite] server connection lost. Polling for restart...",
+      "timestamp": "2026-04-22T14:20:14.203Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:20:15.756Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:20:15.756Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:20:15.756Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:20:15.759Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:20:15.759Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:20:15.759Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:20:15.760Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:20:15.760Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:20:15.760Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.024Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.025Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.025Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.028Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.028Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.028Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.028Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.028Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:16.028Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:20:30.924Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:20:30.924Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:20:30.924Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:20:30.924Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:20:30.979Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:20:30.979Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:20:30.979Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:20:30.979Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:20:31.041Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:20:31.041Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:20:31.041Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:20:31.041Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.047Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.047Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.047Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.047Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.049Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:20:31.050Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:21:30.263Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:21:30.263Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:21:30.263Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connecting...",
+      "timestamp": "2026-04-22T14:21:30.263Z",
+      "line": 827,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:21:30.268Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:21:30.268Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:21:30.268Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "log",
+      "message": "[vite] connected.",
+      "timestamp": "2026-04-22T14:21:30.268Z",
+      "line": 931,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:21:30.347Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:21:30.347Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:21:30.347Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "timestamp": "2026-04-22T14:21:30.347Z",
+      "line": 14337,
+      "sourceId": "http://localhost:5002/node_modules/.vite/deps/react-dom_client.js?v=ab348daa"
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.414Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.414Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.414Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.414Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.415Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.415Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.415Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.415Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.416Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.416Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.416Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.416Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.420Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.420Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.420Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "warning",
+      "message": "Console capture initialized",
+      "timestamp": "2026-04-22T14:21:30.420Z",
+      "line": 8,
+      "sourceId": ""
+    },
+    {
+      "level": "debug",
+      "message": "Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `div`.  It was passed a child from EdgeRenderer.",
+      "timestamp": "2026-04-22T14:21:49.094Z",
+      "line": 510,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "debug",
+      "message": "Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `div`.  It was passed a child from EdgeRenderer.",
+      "timestamp": "2026-04-22T14:21:49.095Z",
+      "line": 510,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "debug",
+      "message": "Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `div`.  It was passed a child from EdgeRenderer.",
+      "timestamp": "2026-04-22T14:21:49.095Z",
+      "line": 510,
+      "sourceId": "http://localhost:5002/@vite/client"
+    },
+    {
+      "level": "debug",
+      "message": "Each child in a list should have a unique \"key\" prop.%s%s See https://react.dev/link/warning-keys for more information. \n\nCheck the render method of `div`.  It was passed a child from EdgeRenderer.",
+      "timestamp": "2026-04-22T14:21:49.095Z",
+      "line": 510,
       "sourceId": "http://localhost:5002/@vite/client"
     }
   ]
