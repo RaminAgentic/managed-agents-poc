@@ -137,11 +137,12 @@
     {
       "sessionId": "session_sprint_bugfix_1776879710309_743x4408z_1776879719428",
       "sprintId": "sprint_bugfix_1776879710309_743x4408z",
-      "status": "running",
+      "status": "completed",
       "startedAt": "2026-04-22T17:41:59.428Z",
       "tasksCompleted": 0,
-      "totalTasks": 1
+      "totalTasks": 1,
+      "endedAt": "2026-04-22T17:52:34.922Z"
     }
   ],
-  "lastUpdated": "2026-04-22T17:49:15.179Z"
+  "lastUpdated": "2026-04-22T17:52:34.931Z"
 }

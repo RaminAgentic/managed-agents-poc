@@ -6,7 +6,7 @@
   "projectPath": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
   "status": "development",
   "createdAt": "2026-04-22T08:39:52.783Z",
-  "updatedAt": "2026-04-22T17:49:14.852Z",
+  "updatedAt": "2026-04-22T17:52:34.564Z",
   "version": "1.0.0",
   "useCaseNodes": [],
   "requirementNodes": [],
@@ -801,7 +801,21 @@
             }
           ]
         }
-      ]
+      ],
+      "codeReview": {
+        "summary": "Review error: Expected property name or '}' in JSON at position 2 (line 1 column 3)",
+        "totalIssues": 0,
+        "issuesByPriority": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        },
+        "issueIds": [],
+        "reviewerModel": "haiku",
+        "noIssuesFound": true,
+        "reviewedAt": "2026-04-22T17:51:52.712Z"
+      }
     },
     {
       "id": "sprint_1776880139595_brpaqajh6",
@@ -835,7 +849,7 @@
       "description": "The MCP HTTP client (mcp/src/client.ts lines 126-131) defines RunDetail.events with fields 'type' and 'payload_json', but the server's GET /api/runs/:id endpoint returns events with fields 'event_type' and 'payload' (from persistence.ts toRunEventRow). In getRunStatus.ts (lines 27-33), the tool reads evt.payload_json (undefined) and evt.type (undefined), causing every event to render as '[undefined] ' instead of showing actual event types and payloads. The web client (client/src/types.ts RunEvent) correctly uses 'event_type' and 'payload', so only the MCP tool is affected.\n\nFile: mcp/src/client.ts",
       "issueType": "bug",
       "priority": "high",
-      "status": "open",
+      "status": "closed",
       "estimatedEffort": "medium",
       "createdAt": "2026-04-22T15:08:07.232Z",
       "updatedAt": "2026-04-22T15:08:07.232Z",
