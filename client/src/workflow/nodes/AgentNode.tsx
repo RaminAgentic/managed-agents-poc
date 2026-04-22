@@ -5,11 +5,12 @@ import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
+import NodeDeleteButton from "./NodeDeleteButton";
 import type { WorkflowNodeData, AgentNodeConfig } from "../types";
 
 const COLOR = "#7c4dff"; // theme secondary / purple
 
-function AgentNode({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
+function AgentNode({ id, data, selected }: NodeProps & { data: WorkflowNodeData }) {
   const config = data.config as AgentNodeConfig;
   const effort = data.modelConfig?.effort ?? "xhigh";
   const agentRef = config.agentRef;
@@ -18,6 +19,7 @@ function AgentNode({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
     <Paper
       elevation={selected ? 4 : 1}
       sx={{
+        position: "relative",
         minWidth: 180,
         borderLeft: `4px solid ${COLOR}`,
         p: 1.5,
@@ -25,6 +27,7 @@ function AgentNode({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
         transition: "box-shadow 0.2s, background-color 0.2s",
       }}
     >
+      <NodeDeleteButton nodeId={id} visible={!!selected} />
       <Handle type="target" position={Position.Top} style={{ background: COLOR }} />
       <Typography
         variant="caption"

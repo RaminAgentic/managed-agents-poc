@@ -1,6 +1,6 @@
 # Sprint Plan
 
-10 sprints planned
+11 sprints planned
 
 ## Sprint 1: Project Scaffolding & Claude SDK Setup [planned]
 Initialize the project (Node.js/TypeScript), install the Anthropic SDK, configure environment variables for the API key, and create a minimal data layer with hardcoded sample prompts/tools and a simple conversation state module to feed the managed agent.
@@ -82,10 +82,16 @@ Implement the server-side workflow execution engine that reads a saved workflow 
 Build the run monitoring experience in the React frontend. Users can browse all workflow runs, open a run detail view showing each step's status and output, and watch an active run update in near-real-time via polling. This closes the loop from clicking Run in the editor to seeing agent outputs.
 
 **Tasks:**
-- Build the Run List page (pending)
-- Build the Run Detail page with step timeline (pending)
-- Show agent output content in step detail (pending)
-- Add navigation between editor and runs (pending)
+- Build the Run List page (completed)
+- Build the Run Detail page with step timeline (completed)
+- Show agent output content in step detail (completed)
+- Add navigation between editor and runs (completed)
 
 ## Fix: Sprint 7: React Flow Visual Workflow Editor [planned]
 Auto-created to address 1 critical/high priority issue(s) from code review
+
+**Tasks:**
+- Fix: Re-saving a workflow fails with 409 Conflict (completed)
+
+## Sprint 11: MCP Server — Claude Code Integration [planned]
+Build a standalone MCP server that connects Claude Code to the flow manager web app. Exposes tools for listing workflows, starting runs, checking run status, and optionally creating workflows. Registers via stdio with Claude Code using `claude mcp add`.

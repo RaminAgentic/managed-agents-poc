@@ -1,16 +1,45 @@
-/* Remove default node wrapper background so MUI Paper renders cleanly */
+/* Override React Flow CSS custom properties to kill default node border */
+.react-flow {
+  --xy-node-border: none;
+  --xy-node-border-default: none;
+  --xy-node-border-radius-default: 0;
+}
+
+/* Kill built-in "input" type node border (React Flow treats "input" as a reserved type with its own styles) */
+.react-flow__node-input {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+}
+
+.react-flow__node-input.selected,
+.react-flow__node-input:focus,
+.react-flow__node-input:focus-visible {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove default node wrapper background/border so MUI Paper renders cleanly */
 .react-flow__node {
   background: transparent !important;
+  border: none !important;
   border-radius: 0 !important;
   box-shadow: none !important;
   padding: 0 !important;
+  overflow: visible !important;
 }
 
-/* Remove selection outline - MUI Paper handles selected state visually */
+/* Remove selection outline/border - MUI Paper handles selected state visually */
 .react-flow__node.selected,
 .react-flow__node:focus,
-.react-flow__node.selected:focus {
+.react-flow__node:focus-visible,
+.react-flow__node.selected:focus,
+.react-flow__node.selected:focus-visible {
   outline: none !important;
+  border: none !important;
   box-shadow: none !important;
 }
 
@@ -26,3 +55,51 @@
 .react-flow__edge-path {
   stroke-width: 2;
 }
+
+/* ── Edge selection highlight ─────────────────────────────────────── */
+
+/* Make edges easier to click by widening the invisible interaction area */
+.react-flow__edge {
+  cursor: pointer;
+}
+
+/* Selected edge glow effect */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #3b82f6 !important;
+  stroke-width: 3 !important;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5));
+}
+
+/* ── Edge delete button ───────────────────────────────────────────── */
+
+.edge-delete-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #94a3b8;
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+  z-index: 10;
+  padding: 0;
+}
+
+/* Show when edge is hovered or selected (toggled via JS class) */
+.edge-delete-btn--visible {
+  opacity: 1 !important;
+}
+
+.edge-delete-btn:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+
+/* Node delete button overflow already handled in .react-flow__node rule above */

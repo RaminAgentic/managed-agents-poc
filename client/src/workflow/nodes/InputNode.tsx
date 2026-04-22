@@ -4,11 +4,12 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import InputIcon from "@mui/icons-material/Login";
+import NodeDeleteButton from "./NodeDeleteButton";
 import type { WorkflowNodeData, InputNodeConfig } from "../types";
 
 const COLOR = "#2196f3"; // theme primary
 
-function InputNode({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
+function InputNode({ id, data, selected }: NodeProps & { data: WorkflowNodeData }) {
   const config = data.config as InputNodeConfig;
   const fields = config.requiredFields ?? [];
 
@@ -16,6 +17,7 @@ function InputNode({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
     <Paper
       elevation={selected ? 4 : 1}
       sx={{
+        position: "relative",
         minWidth: 180,
         borderLeft: `4px solid ${COLOR}`,
         p: 1.5,
@@ -23,6 +25,7 @@ function InputNode({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
         transition: "box-shadow 0.2s, background-color 0.2s",
       }}
     >
+      <NodeDeleteButton nodeId={id} visible={!!selected} />
       <Typography
         variant="caption"
         sx={{

@@ -192,6 +192,7 @@ export function deserializeWorkflow(schema: WorkflowSchema): {
     id: we.id,
     source: we.source,
     target: we.target,
+    type: "deletable",
   }));
 
   return { nodes: nodes as unknown as Node[], edges };

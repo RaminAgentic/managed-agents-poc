@@ -1,0 +1,26 @@
+{
+  "name": "flow-manager-mcp",
+  "version": "1.0.0",
+  "description": "MCP server bridging Claude Code with the Flow Manager web app",
+  "type": "module",
+  "bin": {
+    "flow-manager-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

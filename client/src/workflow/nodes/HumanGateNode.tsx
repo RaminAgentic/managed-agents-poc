@@ -3,11 +3,12 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import PersonIcon from "@mui/icons-material/Person";
+import NodeDeleteButton from "./NodeDeleteButton";
 import type { WorkflowNodeData, HumanGateNodeConfig } from "../types";
 
 const COLOR = "#ed6c02"; // warning / yellow-orange
 
-function HumanGateNode({ data, selected }: NodeProps & { data: WorkflowNodeData }) {
+function HumanGateNode({ id, data, selected }: NodeProps & { data: WorkflowNodeData }) {
   const config = data.config as HumanGateNodeConfig;
   const channel = config.channel;
 
@@ -15,6 +16,7 @@ function HumanGateNode({ data, selected }: NodeProps & { data: WorkflowNodeData 
     <Paper
       elevation={selected ? 4 : 1}
       sx={{
+        position: "relative",
         minWidth: 180,
         borderLeft: `4px solid ${COLOR}`,
         p: 1.5,
@@ -22,6 +24,7 @@ function HumanGateNode({ data, selected }: NodeProps & { data: WorkflowNodeData 
         transition: "box-shadow 0.2s, background-color 0.2s",
       }}
     >
+      <NodeDeleteButton nodeId={id} visible={!!selected} />
       <Handle type="target" position={Position.Top} style={{ background: COLOR }} />
       <Typography
         variant="caption"

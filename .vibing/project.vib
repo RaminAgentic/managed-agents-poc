@@ -6,7 +6,7 @@
   "projectPath": "/Users/raminhedayatpour/Documents/VibeProjects/ramin-hedayatpour-BFP27fWc/managed-agents-poc-8gnj",
   "status": "completed",
   "createdAt": "2026-04-22T08:39:52.783Z",
-  "updatedAt": "2026-04-22T14:22:44.012Z",
+  "updatedAt": "2026-04-22T15:05:45.095Z",
   "version": "1.0.0",
   "useCaseNodes": [],
   "requirementNodes": [],
@@ -704,6 +704,64 @@
             }
           ]
         }
+      ],
+      "codeReview": {
+        "summary": "Review error: Expected property name or '}' in JSON at position 2 (line 1 column 3)",
+        "totalIssues": 0,
+        "issuesByPriority": {
+          "critical": 0,
+          "high": 0,
+          "medium": 0,
+          "low": 0
+        },
+        "issueIds": [],
+        "reviewerModel": "haiku",
+        "noIssuesFound": true,
+        "reviewedAt": "2026-04-22T14:25:25.449Z"
+      }
+    },
+    {
+      "id": "sprint_1776869528608_mrd4lnq9h",
+      "name": "Sprint 11: MCP Server — Claude Code Integration",
+      "description": "Build a standalone MCP server that connects Claude Code to the flow manager web app. Exposes tools for listing workflows, starting runs, checking run status, and optionally creating workflows. Registers via stdio with Claude Code using `claude mcp add`.",
+      "priority": "high",
+      "status": "completed",
+      "individualTasks": [
+        {
+          "id": "task_1776869528621_0_y06pj",
+          "title": "Scaffold mcp/ package",
+          "description": "Create mcp/ directory at project root with its own package.json (name: flow-manager-mcp, type: module, dependencies: @modelcontextprotocol/sdk, zod). Add a tsconfig if using TypeScript. Add a start script: `node dist/index.js` or `tsx src/index.ts`.",
+          "status": "completed",
+          "priority": "high"
+        },
+        {
+          "id": "task_1776869528621_1_5k43l",
+          "title": "Add GET /api/workflows endpoint to backend",
+          "description": "Add a route in src/api/ that returns all saved workflows from the database: [{ id, name, description, nodes, edges }]. This is the data source for the MCP list_workflows tool. Check if this endpoint already exists before creating it.",
+          "status": "completed",
+          "priority": "high"
+        },
+        {
+          "id": "task_1776869528621_2_qb8rw",
+          "title": "Implement MCP server with core tools",
+          "description": "In mcp/src/index.ts (or index.js), create the MCP server using @modelcontextprotocol/sdk. Implement three tools: (1) list_workflows — GET /api/workflows, returns array of {id, name}. (2) start_workflow — POST /api/runs with { workflowId, input }, returns { runId, status }. (3) get_run_status — GET /api/runs/:runId, returns { status, progress, logs (last 5) }. Use FLOW_MANAGER_URL env var (default: http://localhost:3001) for the base URL. Add proper Zod input schemas and error handling for each tool.",
+          "status": "completed",
+          "priority": "high"
+        },
+        {
+          "id": "task_1776869528621_3_2d8da",
+          "title": "Add list_runs and create_workflow tools",
+          "description": "Add two more tools to the MCP server: (4) list_runs — GET /api/runs (add this backend endpoint if missing), returns the 10 most recent runs with id/workflowId/status/createdAt. (5) create_workflow — POST /api/workflows with { name, nodes, edges } to save a new workflow. This lets Claude Code create workflows programmatically.",
+          "status": "completed",
+          "priority": "medium"
+        },
+        {
+          "id": "task_1776869528621_4_3nwij",
+          "title": "Add MCP setup instructions to README",
+          "description": "Create mcp/README.md with: (1) npm install & build steps, (2) the exact `claude mcp add flow-manager --type stdio --command node --args mcp/dist/index.js` command, (3) environment variable setup (FLOW_MANAGER_URL), (4) example Claude Code prompts for each tool. Also add a root-level note in the main README pointing to the MCP setup.",
+          "status": "completed",
+          "priority": "low"
+        }
       ]
     }
   ],
@@ -738,7 +796,7 @@
       "description": "After the first save, WorkflowToolbar stores the returned workflow ID in state (line 69: setWorkflowId(result.id)). On subsequent saves, this ID is passed to serializeWorkflow (line 65: id: workflowId) and included in the POST /api/workflows body. The server extracts this ID (workflowRoutes.ts line 67-68) and calls createWorkflow() which does a Prisma create — hitting a unique constraint violation, returning 409. There is no PUT/PATCH update endpoint on the server. The user sees 'Workflow with this ID already exists' error toast every time they edit and re-save.\n\nFile: client/src/workflow/WorkflowToolbar.tsx",
       "issueType": "bug",
       "priority": "high",
-      "status": "open",
+      "status": "closed",
       "estimatedEffort": "medium",
       "createdAt": "2026-04-22T13:43:59.727Z",
       "updatedAt": "2026-04-22T13:43:59.727Z",
@@ -761,7 +819,7 @@
     "nodeCompletionStats": {},
     "flowValid": true,
     "validationErrors": [],
-    "lastUserInteraction": "2026-04-22T13:37:53.942Z",
+    "lastUserInteraction": "2026-04-22T14:40:00.087Z",
     "userFeedbackPending": false
   },
   "nodeHistory": [],
@@ -928,5 +986,6 @@
   "componentLibrary": "mui",
   "fontHeadings": "inter",
   "fontBody": "inter",
-  "fontMono": "fira-code"
+  "fontMono": "fira-code",
+  "devServerUrl": "http://localhost:5002"
 }

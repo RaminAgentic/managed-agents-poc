@@ -16,6 +16,7 @@ import {
 } from "@xyflow/react";
 import Box from "@mui/material/Box";
 import { nodeTypes } from "./nodeTypes";
+import { edgeTypes } from "./edgeTypes";
 import NodePalette from "./NodePalette";
 import Inspector from "./Inspector";
 import WorkflowToolbar from "./WorkflowToolbar";
@@ -60,7 +61,28 @@ function EditorCanvas() {
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      setEdges((eds) => addEdge(connection, eds));
+      setEdges((eds) => addEdge({ ...connection, type: "deletable" }, eds));
+    },
+    [setEdges]
+  );
+
+  const onEdgesDelete = useCallback(
+    (deletedEdges: Edge[]) => {
+      const deletedIds = new Set(deletedEdges.map((e) => e.id));
+      setEdges((eds) => eds.filter((e) => !deletedIds.has(e.id)));
+    },
+    [setEdges]
+  );
+
+  const onNodesDelete = useCallback(
+    (deletedNodes: Node[]) => {
+      const deletedIds = new Set(deletedNodes.map((n) => n.id));
+      // Clear inspector if the deleted node was selected
+      setSelectedNodeId((prev) => (prev && deletedIds.has(prev) ? null : prev));
+      // Remove any edges connected to deleted nodes
+      setEdges((eds) =>
+        eds.filter((e) => !deletedIds.has(e.source) && !deletedIds.has(e.target))
+      );
     },
     [setEdges]
   );
@@ -128,13 +150,16 @@ function EditorCanvas() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onEdgesDelete={onEdgesDelete}
+            onNodesDelete={onNodesDelete}
             onDrop={onDrop}
             onDragOver={onDragOver}
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
             defaultEdgeOptions={{
-              type: 'smoothstep',
+              type: 'deletable',
               style: { stroke: '#94a3b8', strokeWidth: 2 },
               markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
             }}

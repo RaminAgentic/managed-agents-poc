@@ -1,0 +1,263 @@
+# Flow Manager MCP App for Claude Code
+
+## Overview
+This MCP app lets Claude Code **trigger workflow runs** and **check status** against your flow manager backend. Users can say "Run my content pipeline with topic X" or "What's the status of run abc123".
+
+## Backend API Requirements
+Your backend needs these endpoints:
+
+```
+POST /api/runs
+  Body: { "workflowId": "flow_abc123", "input": { "topic": "AI agents", "audience": "developers" } }
+  Returns: { "runId": "run_xyz789", "status": "pending" }
+
+GET  /api/runs/:runId
+  Returns: { "status": "running", "progress": {...}, "logs": [...] }
+```
+
+## MCP Server Implementation
+
+### 1. Node.js MCP Server (`flow-manager-mcp.js`)
+
+```javascript
+#!/usr/bin/env node
+import { createServer } from '@modelcontextprotocol/sdk/server/index.js';
+import { z } from 'zod';
+
+const server = await createServer({
+  name: 'flow-manager',
+  version: '1.0.0'
+});
+
+// Tool 1: Start a workflow run
+server.tool('start_workflow', {
+  description: 'Start a new workflow run with input parameters',
+  inputSchema: z.object({
+    workflowId: z.string().describe('Workflow ID from the flow manager'),
+    input: z.record(z.any()).describe('Input data for the workflow')
+  })
+}, async ({ workflowId, input }) => {
+  const response = await fetch('https://your-flow-manager.com/api/runs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ workflowId, input })
+  });
+  
+  const result = await response.json();
+  return {
+    runId: result.runId,
+    status: result.status,
+    message: `Started workflow ${workflowId}. Run ID: ${result.runId}`
+  };
+});
+
+// Tool 2: Get run status
+server.tool('get_run_status', {
+  description: 'Check the status of a workflow run',
+  inputSchema: z.object({
+    runId: z.string().describe('Run ID returned from start_workflow')
+  })
+}, async ({ runId }) => {
+  const response = await fetch(`https://your-flow-manager.com/api/runs/${runId}`);
+  const result = await response.json();
+  
+  return {
+    runId,
+    status: result.status,
+    progress: result.progress,
+    logs: result.logs?.slice(-5) || [], // Last 5 log entries
+    completed: result.completed_at ? true : false
+  };
+});
+
+// Tool 3: List recent runs (bonus)
+server.tool('list_recent_runs', {
+  description: 'List the 5 most recent workflow runs',
+  inputSchema: z.object({})
+}, async () => {
+  // Optional: implement /api/runs/recent endpoint
+  return { runs: [], message: 'Recent runs endpoint not implemented' };
+});
+
+await server.connect();
+```
+
+### 2. Package.json
+
+```json
+{
+  "name": "flow-manager-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node flow-manager-mcp.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^latest",
+    "zod": "^3.23.8"
+  }
+}
+```
+
+## Installation & Setup
+
+### Install MCP Server
+```bash
+npm init -y
+npm install @modelcontextprotocol/sdk zod
+# Save the server code as flow-manager-mcp.js
+```
+
+### Connect to Claude Code
+```bash
+# Add as local MCP server
+claude mcp add flow-manager --type stdio --command "node" --args "flow-manager-mcp.js"
+
+# Or use npx for quick testing
+claude mcp add flow-manager --type stdio --command "npx" --args "-y" "your-mcp-package"
+```
+
+### Environment Variables
+```bash
+export FLOW_MANAGER_URL="https://your-flow-manager.com"
+export FLOW_MANAGER_API_KEY="your-api-key"
+```
+
+## Usage Examples
+
+### In Claude Code Chat
+```
+User: Run my content pipeline workflow with topic "AI orchestration" for developers
+
+Claude: Starting workflow... Let me trigger that for you.
+
+[Uses mcp__flow-manager__start_workflow]
+→ {"runId": "run_xyz789", "status": "pending"}
+
+Claude: ✅ Started! Run ID: run_xyz789. I'll check status in a bit.
+```
+
+```
+User: What's the status of run_xyz789?
+
+Claude: Checking run status...
+
+[Uses mcp__flow-manager__get_run_status]  
+→ {"status": "running", "progress": {"step": "draft-agent"}}
+
+Claude: Run xyz789 is running at the draft-agent step.
+```
+
+## Backend API Implementation
+
+Your flow manager needs these Express.js routes:
+
+```javascript
+// POST /api/runs
+app.post('/api/runs', async (req, res) => {
+  const { workflowId, input } = req.body;
+  const runId = generateRunId();
+  
+  // Queue the workflow run
+  await startWorkflow(runId, workflowId, input);
+  
+  res.json({ runId, status: 'pending' });
+});
+
+// GET /api/runs/:runId
+app.get('/api/runs/:runId', async (req, res) => {
+  const run = await getRunStatus(req.params.runId);
+  res.json(run);
+});
+```
+
+## Error Handling
+
+The MCP server automatically handles timeouts and retries. Add validation:
+
+```javascript
+server.tool('start_workflow', {
+  // ...
+}, async ({ workflowId, input }) => {
+  if (!workflowId) {
+    throw new Error('workflowId is required');
+  }
+  
+  try {
+    const response = await fetch(...);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    return {
+      error: error.message,
+      runId: null
+    };
+  }
+});
+```
+
+## React Flow Integration
+
+Your web app should expose workflow IDs:
+
+```
+https://your-flow-manager.com/workflows
+→ [
+  { "id": "content-pipeline-v1", "name": "Content Pipeline" },
+  { "id": "code-review-flow", "name": "Code Review" }
+]
+```
+
+## Testing the MCP
+
+1. **Start MCP server:** `node flow-manager-mcp.js`
+2. **Connect in Claude Code:** `claude mcp list` (should show flow-manager)
+3. **Test in chat:** "List tools from flow-manager"
+4. **Run workflow:** "Start workflow content-pipeline-v1 with input topic='test'"
+
+## Deployment Options
+
+### Production
+```bash
+# Docker
+docker run -p 3000:3000 -e FLOW_MANAGER_URL=https://prod.yoursite.com your-mcp-image
+
+# PM2
+pm2 start flow-manager-mcp.js --name flow-mcp
+```
+
+### Remote MCP (Advanced)
+Expose as HTTP server for Messages API integration:
+
+```javascript
+// HTTP MCP server
+const httpServer = createHttpServer(server);
+httpServer.listen(3000);
+```
+
+## Security Checklist
+- ✅ API key authentication on backend endpoints
+- ✅ Input validation with Zod schemas
+- ✅ Rate limiting on `/runs` endpoint
+- ✅ Run ownership (user owns their workflows)
+- ✅ Audit all MCP tool calls
+
+**Next Steps:**
+1. Deploy backend API endpoints
+2. Test MCP locally with `claude mcp add`
+3. Verify end-to-end: Claude → MCP → API → Workflow run
+4. Add to production MCP config
+
+**Need help?** Ping me for backend API code or React Flow workflow ID picker.
+
+Sources
+[1] Automate work with routines - Claude Code Docs https://code.claude.com/docs/en/routines
+[2] Connect to external tools with MCP - Claude API Docs https://platform.claude.com/docs/en/agent-sdk/mcp
+[3] Claude MCP Integration: Connect Claude Code to Tools https://thoughtminds.ai/blog/claude-mcp-integration-how-to-connect-claude-code-to-tools-via-mcp
+[4] Use Claude Code as an MCP... https://code.claude.com/docs/en/mcp
+[5] Guide to Integrating MCP Openapi with Claude Desktop https://openapi.com/mcp/claude
+[6] Claude Code MCP Integrations: How Tools Connect to AI Coding ... https://www.truefoundry.com/blog/claude-code-mcp-integrations-guide
+[7] Building Custom Workflow Servers for Claude Code - Hugging Face https://huggingface.co/learn/mcp-course/unit3/introduction
+[8] Anthropic Academy: Claude API Development Guide https://www.anthropic.com/learn/build-with-claude
+[9] Tool use with Claude - Claude API Docs https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview
+[10] How to Create Automated AI Workflows Using Claude Code in 15 ... https://www.youtube.com/watch?v=BvZ572XX_k4

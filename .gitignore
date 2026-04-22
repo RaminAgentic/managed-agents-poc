@@ -47,3 +47,7 @@ temp/
 # Client build artifacts
 client/node_modules/
 client/dist/
+
+# MCP server build artifacts
+mcp/node_modules/
+mcp/dist/
