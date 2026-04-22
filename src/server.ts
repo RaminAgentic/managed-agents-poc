@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import cors from "cors";
 import path from "path";
 
 // Trigger API-key validation at startup (fail-fast)
@@ -6,14 +7,21 @@ import "./config/env";
 
 import { runOrchestrator } from "./agent/orchestrator";
 
-const PORT = 5002;
+// In dev, Vite serves the frontend on 5002 and proxies /api to 5001.
+// In production, Express serves everything (static + API) on 5002.
+const PORT = process.env.NODE_ENV === "production" ? 5002 : 5001;
 const app = express();
 
 // --- Middleware ---
+app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "..", "public")));
 
 // --- API Routes ---
+
+/** GET /api/health — lightweight probe for proxy / CI smoke tests */
+app.get("/api/health", (_req: Request, res: Response) => {
+  res.json({ ok: true });
+});
 
 /**
  * POST /api/chat
@@ -39,6 +47,15 @@ app.post("/api/chat", async (req: Request, res: Response) => {
       .json({ error: err instanceof Error ? err.message : "unknown error" });
   }
 });
+
+// --- Production: serve React build ---
+if (process.env.NODE_ENV === "production") {
+  const clientDist = path.join(__dirname, "..", "client", "dist");
+  app.use(express.static(clientDist));
+  app.get("*", (_req: Request, res: Response) => {
+    res.sendFile(path.join(clientDist, "index.html"));
+  });
+}
 
 // --- Start Server ---
 app.listen(PORT, () => {

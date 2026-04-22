@@ -44,7 +44,16 @@
       "startedAt": "2026-04-22T09:11:30.549Z",
       "tasksCompleted": 0,
       "totalTasks": 4
+    },
+    {
+      "sessionId": "session_sprint_1776848977352_jcdscsrps_1776851233511",
+      "sprintId": "sprint_1776848977352_jcdscsrps",
+      "status": "completed",
+      "startedAt": "2026-04-22T09:47:13.512Z",
+      "tasksCompleted": 0,
+      "totalTasks": 4,
+      "endedAt": "2026-04-22T10:02:32.817Z"
     }
   ],
-  "lastUpdated": "2026-04-22T09:17:50.100Z"
+  "lastUpdated": "2026-04-22T10:02:32.888Z"
 }

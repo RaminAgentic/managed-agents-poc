@@ -1,118 +1,13 @@
 {
-  "sessionId": "session_1776847848603",
+  "sessionId": "session_1776852107317",
   "sessionUrl": "http://localhost:5002",
-  "sessionTitle": "Localhost",
-  "lastUpdated": "2026-04-22T09:16:04.377Z",
+  "sessionTitle": "Unknown",
+  "lastUpdated": "2026-04-22T10:01:48.300Z",
   "logs": [
     {
       "level": "warning",
       "message": "Console capture initialized",
-      "timestamp": "2026-04-22T08:59:44.714Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T08:59:44.714Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T08:59:44.717Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T08:59:44.717Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.375Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.375Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.375Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.376Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.376Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.376Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.376Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.376Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.376Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.377Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.377Z",
-      "line": 8,
-      "sourceId": ""
-    },
-    {
-      "level": "warning",
-      "message": "Console capture initialized",
-      "timestamp": "2026-04-22T09:16:04.377Z",
+      "timestamp": "2026-04-22T10:01:48.300Z",
       "line": 8,
       "sourceId": ""
     }

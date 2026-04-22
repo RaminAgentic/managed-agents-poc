@@ -43,3 +43,7 @@ temp/
 # Cache
 .cache/
 *.tsbuildinfo
+
+# Client build artifacts
+client/node_modules/
+client/dist/

@@ -72,7 +72,31 @@
       "content": "Sprint 4 is created — it adds an Express backend API on port 5002 and a React + MUI chat UI in the browser. Ready to execute when you are. Just say \"run it\" or \"execute sprint 4.\"",
       "timestamp": "2026-04-22T09:09:40.377Z",
       "stepContext": "Step 1"
+    },
+    {
+      "role": "user",
+      "content": "How do we configure this with api key",
+      "timestamp": "2026-04-22T09:57:48.674Z",
+      "stepContext": "Step 1"
+    },
+    {
+      "role": "assistant",
+      "content": "The project uses a `.env` file for the Anthropic API key. Here's what to do:\n\n1. Create a `.env` file in the project root (same directory as `.env.example`)\n2. Add your key: `ANTHROPIC_API_KEY=sk-ant-...`\n3. Get your key from [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)\n\nThe `.env` file is already in `.gitignore` so it won't be committed. The app loads it via `dotenv` automatically on startup.",
+      "timestamp": "2026-04-22T09:57:48.674Z",
+      "stepContext": "Step 1"
+    },
+    {
+      "role": "user",
+      "content": "make the file for me",
+      "timestamp": "2026-04-22T09:58:45.270Z",
+      "stepContext": "Step 1"
+    },
+    {
+      "role": "assistant",
+      "content": "Which file did you have in mind? If it's the `.env`, I can have the Coder create it from `.env.example` — you'd just need to fill in your API key from [console.anthropic.com](https://console.anthropic.com/settings/keys).",
+      "timestamp": "2026-04-22T09:58:45.270Z",
+      "stepContext": "Step 1"
     }
   ],
-  "lastUpdated": "2026-04-22T09:09:40.414Z"
+  "lastUpdated": "2026-04-22T09:58:45.273Z"
 }

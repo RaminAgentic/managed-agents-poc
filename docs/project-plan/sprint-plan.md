@@ -34,10 +34,16 @@ Introduce a second specialized sub-agent and an orchestrator that routes tasks b
 Replace the CLI entrypoint with an Express web server serving a chat-style browser UI on port 5002. Users interact with the orchestrator through a web page instead of the terminal. Keep all existing agent logic (orchestrator, weather agent, research agent) intact — only change the I/O layer from CLI to HTTP/HTML.
 
 **Tasks:**
-- Add Express server with API endpoint (pending)
-- Create browser chat UI (pending)
-- Add sample prompt buttons to the UI (pending)
-- Add agent routing indicator to responses (pending)
+- Add Express server with API endpoint (completed)
+- Create browser chat UI (completed)
+- Add sample prompt buttons to the UI (completed)
+- Add agent routing indicator to responses (completed)
 
 ## Sprint 4: Web App UI [planned]
 Convert the CLI POC into a proper web app. Add an Express server that exposes the orchestrator as a REST API, and build a React + MUI chat interface on the frontend so users can type prompts and see agent responses in the browser at port 5002.
+
+**Tasks:**
+- Add Express API server with /api/chat endpoint (pending)
+- Create React + MUI frontend (pending)
+- Configure Vite proxy and update dev scripts (pending)
+- Display agent routing trace in the UI (pending)
