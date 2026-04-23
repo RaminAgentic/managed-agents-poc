@@ -47,18 +47,28 @@ async function getConnection(): Promise<Connection> {
     try {
       await conn.login(username, password);
     } catch (err) {
-      const e = err as { errorCode?: string; message?: string; name?: string };
-      const detail = [
-        e.errorCode ? `code=${e.errorCode}` : null,
-        e.name ? `name=${e.name}` : null,
-        e.message ?? String(err),
+      // Dump the full error object so we can see whatever jsforce returned
+      const raw = err as Record<string, unknown>;
+      const dump: Record<string, unknown> = {};
+      for (const key of Object.getOwnPropertyNames(raw)) {
+        dump[key] = raw[key];
+      }
+      const flow = useOAuth2 ? "OAuth2 username-password" : "SOAP";
+      console.error(
+        `[salesforce] Login failed (${flow}). Raw error:`,
+        JSON.stringify(dump, null, 2)
+      );
+      const message =
+        typeof raw.message === "string" ? raw.message : "Login failed";
+      const extra = [
+        raw.errorCode ? `errorCode=${raw.errorCode}` : null,
+        raw.name ? `name=${raw.name}` : null,
+        raw.error ? `error=${raw.error}` : null,
+        raw.error_description ? `desc=${raw.error_description}` : null,
       ]
         .filter(Boolean)
         .join(" · ");
-      console.error(
-        `[salesforce] Login failed (${useOAuth2 ? "OAuth2 username-password" : "SOAP"}): ${detail}`
-      );
-      throw new Error(detail);
+      throw new Error(extra ? `${message} (${extra})` : message);
     }
     console.log(
       `[salesforce] Authenticated via ${useOAuth2 ? "OAuth2 username-password" : "SOAP login"} as ${conn.userInfo?.id} on ${conn.instanceUrl}`
