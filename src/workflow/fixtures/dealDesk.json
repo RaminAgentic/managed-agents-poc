@@ -7,15 +7,15 @@
     {
       "id": "input",
       "type": "input",
-      "name": "Deal reference",
+      "name": "Deal description",
       "config": {
-        "description": "Analyze a Salesforce opportunity against pricing policy, post to #deal-desk for optional CFO approval, then write the decision back to Salesforce.",
+        "description": "Review a deal against pricing policy, post to #deal-desk for optional CFO approval, then write the decision back to Salesforce. The reader agent will find the existing Opportunity or create a new one from whatever details you provide — you don't need to know any Salesforce IDs.",
         "fields": {
-          "opportunityId": {
-            "description": "Salesforce Opportunity ID to review (15 or 18-char ID starting with 006).",
+          "deal": {
+            "description": "Describe the deal in plain English — include the customer/account name, approximate amount, and any other relevant details (close date, product, discount, special terms). If you happen to know the Salesforce Opportunity Id, you can paste it here too and the agent will use it directly.",
             "type": "string",
             "required": true,
-            "example": "0063K00000XyZab"
+            "example": "Acme Toys enterprise renewal, about $200k, closing end of Q3, asking for 25% off"
           }
         }
       }
@@ -26,9 +26,9 @@
       "name": "Opportunity reader",
       "modelConfig": { "model": "claude-opus-4-7", "effort": "high" },
       "config": {
-        "instructions": "You are a deal desk analyst. Given a Salesforce Opportunity ID, do the following and return a structured JSON summary:\n\n1. Read the opportunity: amount, stage, close date, product mix, primary contact, sales rep.\n2. Read the parent account: tier, industry, ARR, renewal history, open support cases.\n3. Query closed-won opportunities in the last 12 months with similar amount and product mix. Extract their discount %.\n4. Compute this deal's discount % vs. the comps' median and p90.\n\nReturn JSON with the shape: { \"opportunity\": {...}, \"account\": {...}, \"comps\": { \"median_discount\": n, \"p90_discount\": n, \"sample_size\": n }, \"this_deal_discount\": n, \"flags\": [ ... any policy flags ... ] }. Do NOT post anywhere yet — just return the JSON.",
+        "instructions": "You are a deal desk analyst. You'll receive a freeform description in `deal` that mentions a customer, an amount, and other details. Do this:\n\nSTEP 1 — Resolve the opportunity (don't ask the user for IDs):\n  a. If `deal` contains a 15 or 18-char Salesforce ID starting with `006`, use it directly.\n  b. Otherwise extract the customer/account name from the description.\n  c. sf_query: SELECT Id, Name FROM Account WHERE Name LIKE '%<customer>%' LIMIT 5. If exact or close match exists, pick it. If no Account, sf_create a new one with just that Name.\n  d. sf_query for existing Opportunities on that Account with a similar name + stage != 'Closed Won'/'Closed Lost'. If one matches closely, use it.\n  e. If no matching Opportunity, sf_create one with: Name = '<customer> — <short summary>', AccountId = <from step c>, Amount = <parsed from description, or 0 if unknown>, CloseDate = <parsed or 90 days out>, StageName = 'Prospecting'.\n  f. Record the resolved opportunityId for the rest of the flow.\n\nSTEP 2 — Analyze:\n  a. Read the opportunity's full fields via sf_query.\n  b. Read the parent account's fields.\n  c. If helpful, sf_query closed-won opportunities in the last 12 months of similar size for comps.\n\nSTEP 3 — Return JSON:\n  {\n    \"opportunityId\": \"...\",\n    \"createdNew\": true|false,\n    \"opportunity\": {...},\n    \"account\": {...},\n    \"comps\": { \"median_discount\": n, \"p90_discount\": n, \"sample_size\": n } | null,\n    \"this_deal_discount\": n | null,\n    \"flags\": [ ... policy flags ... ]\n  }\n\nDO NOT post to Slack or Chatter yet — that's the reviewer's job. Just return the JSON.",
         "inputMapping": {
-          "opportunityId": "$.run.input.opportunityId"
+          "deal": "$.run.input.deal"
         },
         "timeoutSeconds": 300,
         "outputFormat": "json",
@@ -66,7 +66,7 @@
       "config": {
         "summaryFields": ["text"],
         "slackChannel": "#deal-desk",
-        "slackTitle": "Deal desk decision: {{input.opportunityId}}"
+        "slackTitle": "Deal desk decision: {{input.deal}}"
       }
     }
   ],
