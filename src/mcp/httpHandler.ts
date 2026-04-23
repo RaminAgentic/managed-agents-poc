@@ -170,11 +170,11 @@ async function handleSalesforceConcierge(
       request: input.request,
     });
 
-    // Bounded long-poll: most asks complete within 45s. Return the final
-    // text directly when they do, so Cowork surfaces it without narration.
-    // If we hit the cap, return a short hand-off message + sessionId so
-    // Cowork can call concierge_status to finish up.
-    const DEADLINE_MS = 45_000;
+    // Bounded long-poll. Most asks complete within 2 min. Cowork's MCP
+    // client accepts long tool calls; this keeps the whole concierge
+    // interaction to a single call so we don't depend on the client
+    // having the concierge_status tool in its list.
+    const DEADLINE_MS = 120_000;
     const POLL_INTERVAL_MS = 500;
     const deadline = Date.now() + DEADLINE_MS;
 
@@ -197,18 +197,18 @@ async function handleSalesforceConcierge(
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
+    // Timed out — return whatever partial text the agent produced.
+    // No sessionId or retry hint; Cowork just shows this to the user.
     const state = getConciergeStatus(sessionId);
-    const toolLine =
-      state && state.toolCalls.length > 0
-        ? ` (tools used: ${state.toolCalls.join(", ")})`
-        : "";
+    const partial = state?.text?.trim() ?? "";
     return {
       content: [
         {
           type: "text",
-          text:
-            `Still working on a detailed ask${toolLine}. ` +
-            `Call concierge_status with sessionId \`${sessionId}\` to fetch the result.`,
+          text: partial
+            ? partial +
+              "\n\n_(Still finalizing — this may continue in the background.)_"
+            : "The concierge is taking longer than expected. Try a narrower ask or retry.",
         },
       ],
     };
