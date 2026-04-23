@@ -24,7 +24,10 @@ import { updateRunStatus } from "../workflow/persistence";
 import type { WorkflowSchema } from "../workflow/types";
 import { renderRunAsReactArtifact } from "../workflow/renderRunArtifact";
 import { renderWorkflowMermaid } from "../workflow/renderMermaid";
-import { runSalesforceConcierge } from "../agent/salesforceConcierge";
+import {
+  startSalesforceConciergeAsync,
+  getConciergeStatus,
+} from "../agent/salesforceConcierge";
 
 // ── Tool Schemas ───────────────────────────────────────────────────────
 // Replicated from mcp/src/tools/*.ts — KEEP IN SYNC
@@ -60,7 +63,16 @@ const salesforceConciergeSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Describe what you want done with Salesforce, in plain English. Examples: 'I just met with Acme Toys, log a ~$200k enterprise opp for Q3', 'how's our pipeline this quarter', 'who are the slipping deals over $100k'. The agent will find-or-create the necessary records, enrich from the web if useful, and for reports it will return a React chart you can render as an artifact."
+      "Describe what you want done with Salesforce, in plain English. Examples: 'I just met with Acme Toys, log a ~$200k enterprise opp for Q3', 'how's our pipeline this quarter', 'who are the slipping deals over $100k'. The agent will find-or-create the necessary records, enrich from the web if useful, and for reports it will return a React chart you can render as an artifact. This tool kicks off the work in the background and returns a sessionId immediately; poll concierge_status(sessionId) for progress and the final result."
+    ),
+});
+
+const conciergeStatusSchema = z.object({
+  sessionId: z
+    .string()
+    .min(1)
+    .describe(
+      "The sessionId returned from salesforce_concierge. Returns current status (running / completed / failed), the list of tools invoked so far, and the agent's text output (partial while running, full when completed)."
     ),
 });
 
@@ -154,14 +166,17 @@ async function handleSalesforceConcierge(
   input: z.infer<typeof salesforceConciergeSchema>
 ): Promise<ToolResult> {
   try {
-    const result = await runSalesforceConcierge({ request: input.request });
+    const { sessionId } = await startSalesforceConciergeAsync({
+      request: input.request,
+    });
     return {
       content: [
         {
           type: "text",
           text:
-            result.text +
-            `\n\n---\n\n_Managed agent session ${result.sessionId} on agent ${result.agentId}._`,
+            `:rocket: On it. I've kicked off the Salesforce concierge in the background — this usually takes 30–90 seconds for complex asks.\n\n` +
+            `**Session ID:** \`${sessionId}\`\n\n` +
+            `Call \`concierge_status\` with that session ID in a few seconds to get progress and the final result. Don't block the user waiting — you can reply to them and check back.`,
         },
       ],
     };
@@ -170,12 +185,79 @@ async function handleSalesforceConcierge(
       content: [
         {
           type: "text",
-          text: `Concierge error: ${(err as Error).message}`,
+          text: `Concierge start error: ${(err as Error).message}`,
         },
       ],
       isError: true,
     };
   }
+}
+
+async function handleConciergeStatus(
+  input: z.infer<typeof conciergeStatusSchema>
+): Promise<ToolResult> {
+  const state = getConciergeStatus(input.sessionId);
+  if (!state) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `No session ${input.sessionId} found. It may have expired (we keep the last 100) or the server restarted.`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const toolLine =
+    state.toolCalls.length > 0
+      ? `**Tools used so far:** ${state.toolCalls.join(", ")}\n\n`
+      : "";
+  const elapsed = Math.round(
+    (new Date(state.completedAt ?? new Date().toISOString()).getTime() -
+      new Date(state.startedAt).getTime()) /
+      1000
+  );
+
+  if (state.status === "running") {
+    return {
+      content: [
+        {
+          type: "text",
+          text:
+            `**Status:** :hourglass_flowing_sand: still running (${elapsed}s elapsed)\n\n` +
+            toolLine +
+            (state.text
+              ? `_Partial output so far:_\n\n${state.text.slice(0, 600)}${state.text.length > 600 ? "…" : ""}\n\n`
+              : "") +
+            `Check again in ~10 seconds.`,
+        },
+      ],
+    };
+  }
+
+  if (state.status === "failed") {
+    return {
+      content: [
+        {
+          type: "text",
+          text:
+            `**Status:** :x: failed after ${elapsed}s\n\n${toolLine}**Error:** ${state.error ?? "unknown"}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  return {
+    content: [
+      {
+        type: "text",
+        text:
+          `**Status:** :white_check_mark: completed in ${elapsed}s\n\n${toolLine}${state.text}`,
+      },
+    ],
+  };
 }
 
 async function handleDescribeWorkflow(
@@ -596,9 +678,17 @@ export function createMcpServer(): McpServer {
   // ─── Tool: salesforce_concierge ────────────────────────────────────
   server.tool(
     "salesforce_concierge",
-    "Talk to Salesforce in plain English. This is the preferred tool for ad-hoc Salesforce work: logging a new deal you just met about (with automatic web enrichment), asking pipeline questions, updating a record, posting to Chatter. The agent finds-or-creates any records needed — users never paste Salesforce IDs. For report-style questions, the response includes a React chart you can promote to an artifact. Use this instead of start_workflow when the user is just talking about a single task.",
+    "Talk to Salesforce in plain English. This is the preferred tool for ad-hoc Salesforce work: logging a new deal (with automatic web enrichment), asking pipeline questions, updating a record, posting to Chatter. The agent finds-or-creates any records needed — users never paste Salesforce IDs. **This tool returns immediately with a sessionId.** The work runs in the background. Tell the user what you kicked off, then call `concierge_status(sessionId)` a few seconds later to fetch progress and the final result — don't keep the user blocked.",
     salesforceConciergeSchema.shape,
     async (input) => handleSalesforceConcierge(input)
+  );
+
+  // ─── Tool: concierge_status ────────────────────────────────────────
+  server.tool(
+    "concierge_status",
+    "Check the status of a Salesforce concierge session. Returns running / completed / failed, tools invoked so far, and the agent's output (partial while running, complete on success). Poll every ~10 seconds after calling salesforce_concierge.",
+    conciergeStatusSchema.shape,
+    async (input) => handleConciergeStatus(input)
   );
 
   // ─── Tool: list_workflows ──────────────────────────────────────────
@@ -649,7 +739,7 @@ export function createMcpServer(): McpServer {
     async (input) => handleCreateWorkflow(input)
   );
 
-  console.log("[mcp-http] McpServer created with 7 tools (direct service layer)");
+  console.log("[mcp-http] McpServer created with 8 tools (direct service layer)");
 
   return server;
 }

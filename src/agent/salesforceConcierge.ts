@@ -76,9 +76,196 @@ interface ConciergeCall {
   // Optional: prior conversation turns for multi-turn support (future)
 }
 
+// ── In-memory session registry for async polling ─────────────────────
+
+type ConciergeStatus = "running" | "completed" | "failed";
+
+interface ConciergeState {
+  request: string;
+  status: ConciergeStatus;
+  text: string; // latest accumulated text (even mid-run)
+  toolCalls: string[]; // human-readable trail of tools invoked
+  sessionId: string;
+  agentId: string;
+  startedAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
+const conciergeSessions = new Map<string, ConciergeState>();
+const MAX_SESSIONS_RETAINED = 100;
+
+function rememberState(state: ConciergeState): void {
+  conciergeSessions.set(state.sessionId, state);
+  // Simple LRU-ish cap
+  if (conciergeSessions.size > MAX_SESSIONS_RETAINED) {
+    const first = conciergeSessions.keys().next().value;
+    if (first) conciergeSessions.delete(first);
+  }
+}
+
+export function getConciergeStatus(
+  sessionId: string
+): ConciergeState | undefined {
+  return conciergeSessions.get(sessionId);
+}
+
+/**
+ * Start a concierge session in the background. Returns immediately with
+ * the sessionId; the caller can poll getConciergeStatus(sessionId) to
+ * check progress and grab the final text once status === "completed".
+ */
+export async function startSalesforceConciergeAsync(
+  call: ConciergeCall
+): Promise<{ sessionId: string; agentId: string }> {
+  const tools: Anthropic.Beta.Agents.AgentCreateParams["tools"] = [
+    { type: "agent_toolset_20260401" },
+    ...(SF_TOOL_DEFINITIONS as unknown as NonNullable<
+      Anthropic.Beta.Agents.AgentCreateParams["tools"]
+    >),
+  ];
+
+  const agent = await anthropic.beta.agents.create({
+    name: "Salesforce concierge",
+    model: MODEL,
+    system: SYSTEM_PROMPT,
+    tools,
+  });
+
+  const environmentId = await getEnvironmentId();
+  const session = await anthropic.beta.sessions.create({
+    agent: agent.id,
+    environment_id: environmentId,
+    title: `Concierge: ${call.request.slice(0, 80)}`,
+  });
+
+  const state: ConciergeState = {
+    request: call.request,
+    status: "running",
+    text: "",
+    toolCalls: [],
+    sessionId: session.id,
+    agentId: agent.id,
+    startedAt: new Date().toISOString(),
+  };
+  rememberState(state);
+
+  console.log(
+    `[concierge] async session=${session.id} agent=${agent.id} request="${call.request.slice(0, 120)}"`
+  );
+
+  // Fire-and-forget — stream events into `state` in the background
+  streamConciergeSession(state, call.request).catch((err) => {
+    state.status = "failed";
+    state.error = err instanceof Error ? err.message : String(err);
+    state.completedAt = new Date().toISOString();
+    console.error(`[concierge] session ${session.id} failed:`, err);
+  });
+
+  return { sessionId: session.id, agentId: agent.id };
+}
+
+async function streamConciergeSession(
+  state: ConciergeState,
+  userMessage: string
+): Promise<void> {
+  const stream = await anthropic.beta.sessions.events.stream(state.sessionId);
+  await anthropic.beta.sessions.events.send(state.sessionId, {
+    events: [
+      {
+        type: "user.message",
+        content: [{ type: "text", text: userMessage }],
+      },
+    ],
+  });
+
+  const pendingToolCalls: Array<{
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
+  }> = [];
+
+  for await (const event of stream) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const e = event as any;
+    switch (e.type) {
+      case "agent.message":
+        for (const block of e.content ?? []) {
+          if (block.type === "text") state.text += block.text;
+        }
+        break;
+
+      case "agent.custom_tool_use":
+        state.toolCalls.push(e.name);
+        pendingToolCalls.push({
+          id: e.id,
+          name: e.name,
+          input: (e.input ?? {}) as Record<string, unknown>,
+        });
+        break;
+
+      case "session.status_idle": {
+        const reason = e.stop_reason?.type;
+        if (reason === "end_turn") {
+          state.status = "completed";
+          state.completedAt = new Date().toISOString();
+          return;
+        }
+        if (reason === "retries_exhausted") {
+          state.status = "failed";
+          state.error = "Session exhausted retries";
+          state.completedAt = new Date().toISOString();
+          return;
+        }
+        if (reason === "requires_action" && pendingToolCalls.length > 0) {
+          const results = await Promise.all(
+            pendingToolCalls.map(async (tc) => {
+              const result = SF_TOOL_NAMES.has(tc.name)
+                ? await dispatchSalesforceTool(tc.name, tc.input)
+                : `Error: unknown tool "${tc.name}"`;
+              return { tc, result };
+            })
+          );
+          await anthropic.beta.sessions.events.send(state.sessionId, {
+            events: results.map(({ tc, result }) => ({
+              type: "user.custom_tool_result" as const,
+              custom_tool_use_id: tc.id,
+              content: [{ type: "text" as const, text: result }],
+            })),
+          });
+          pendingToolCalls.length = 0;
+        }
+        break;
+      }
+
+      case "session.error":
+        state.status = "failed";
+        state.error = e.error?.message ?? "session error";
+        state.completedAt = new Date().toISOString();
+        return;
+
+      case "session.status_terminated":
+        state.status = state.text ? "completed" : "failed";
+        state.error = state.text ? undefined : "session terminated";
+        state.completedAt = new Date().toISOString();
+        return;
+
+      default:
+        break;
+    }
+  }
+
+  // Stream closed without explicit end_turn — treat as terminated
+  if (state.status === "running") {
+    state.status = "completed";
+    state.completedAt = new Date().toISOString();
+  }
+}
+
 /**
  * Run a single concierge session to completion, returning the agent's
- * final text output.
+ * final text output. Blocking — use only for admin/testing paths; the
+ * MCP tool uses startSalesforceConciergeAsync + getConciergeStatus.
  */
 export async function runSalesforceConcierge(
   call: ConciergeCall
