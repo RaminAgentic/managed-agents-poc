@@ -11,6 +11,8 @@ import { runGateNode } from "./gateNodeHandler";
 import { runRouterNode } from "./routerNodeHandler";
 import { runHumanGateNode } from "./humanGateNodeHandler";
 import { runFinalizeNode } from "./finalizeNodeHandler";
+import { runSubflowNode } from "./subflowNodeHandler";
+import { runMapNode } from "./mapNodeHandler";
 
 const handlerMap: Record<NodeType, NodeHandler> = {
   input: runInputNode,
@@ -19,6 +21,8 @@ const handlerMap: Record<NodeType, NodeHandler> = {
   router: runRouterNode,
   human_gate: runHumanGateNode,
   finalize: runFinalizeNode,
+  subflow: runSubflowNode,
+  map: runMapNode,
 };
 
 /**

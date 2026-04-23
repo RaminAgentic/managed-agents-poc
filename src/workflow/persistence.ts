@@ -258,10 +258,11 @@ export async function logEvent(
 
 /**
  * Update the status of a WorkflowRun.
- * Sets completedAt on terminal states (completed, failed).
+ * Sets completedAt on terminal states (completed, failed, cancelled).
  */
 export async function updateRunStatus(runId: string, status: RunStatus): Promise<void> {
-  const isTerminal = status === "completed" || status === "failed";
+  const isTerminal =
+    status === "completed" || status === "failed" || status === "cancelled";
   const data: Record<string, unknown> = { status };
 
   if (status === "running") {
@@ -275,6 +276,50 @@ export async function updateRunStatus(runId: string, status: RunStatus): Promise
     where: { id: runId },
     data,
   });
+}
+
+/**
+ * Flag a run for cancellation. The executor checks this between steps
+ * and transitions to `cancelled`.
+ */
+export async function requestRunCancel(runId: string): Promise<void> {
+  await prisma.workflowRun.update({
+    where: { id: runId },
+    data: { cancelRequested: true },
+  });
+}
+
+/**
+ * Check whether a run has been flagged for cancellation.
+ */
+export async function isRunCancelRequested(runId: string): Promise<boolean> {
+  const r = await prisma.workflowRun.findUnique({
+    where: { id: runId },
+    select: { cancelRequested: true },
+  });
+  return r?.cancelRequested === true;
+}
+
+/**
+ * Increment the running token tally for a run (used by budget enforcement).
+ */
+export async function incrementTokensUsed(
+  runId: string,
+  delta: number
+): Promise<number> {
+  if (delta <= 0) {
+    const r = await prisma.workflowRun.findUnique({
+      where: { id: runId },
+      select: { tokensUsed: true },
+    });
+    return r?.tokensUsed ?? 0;
+  }
+  const r = await prisma.workflowRun.update({
+    where: { id: runId },
+    data: { tokensUsed: { increment: delta } },
+    select: { tokensUsed: true },
+  });
+  return r.tokensUsed;
 }
 
 // ── Workflow CRUD ───────────────────────────────────────────────────
@@ -332,17 +377,25 @@ export async function listWorkflows(): Promise<WorkflowRow[]> {
 
 /**
  * Create a new workflow run record.
+ * @param opts.parentRunId — if set, this run was invoked by a subflow node
+ * @param opts.notify     — per-run override of the workflow's notify config
  * @returns The new run's ID.
  */
 export async function createWorkflowRun(
   workflowId: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  opts?: {
+    parentRunId?: string;
+    notify?: unknown;
+  }
 ): Promise<string> {
   const run = await prisma.workflowRun.create({
     data: {
       workflowId,
       status: "pending",
       inputJson: JSON.stringify(input),
+      parentRunId: opts?.parentRunId ?? null,
+      notifyJson: opts?.notify ? JSON.stringify(opts.notify) : null,
     },
   });
   return run.id;

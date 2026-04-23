@@ -161,6 +161,7 @@ export async function executeWorkflow(
     workflowId: workflowSchema.id,
     run: { id: runId, input },
     steps: {},
+    schema: workflowSchema,
   };
 
   const state = buildGraphState(workflowSchema);

@@ -73,18 +73,27 @@ model Agent {
 
 /// A single execution of a workflow.
 model WorkflowRun {
-  id          String    @id @default(cuid())
-  workflowId  String    @map("workflow_id")
-  workflow    Workflow   @relation(fields: [workflowId], references: [id])
-  status      String    @default("pending") // pending | running | completed | failed
-  inputJson   String    @default("{}") @map("input_json")
-  startedAt   DateTime? @map("started_at")
-  completedAt DateTime? @map("completed_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  steps       RunStep[]
-  events      RunEvent[]
+  id              String    @id @default(cuid())
+  workflowId      String    @map("workflow_id")
+  workflow        Workflow   @relation(fields: [workflowId], references: [id])
+  status          String    @default("pending") // pending | running | completed | failed | cancelled
+  inputJson       String    @default("{}") @map("input_json")
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  /// v2: parent run id for subflow invocations.
+  parentRunId     String?   @map("parent_run_id")
+  /// v2: cancellation flag — executor checks between steps.
+  cancelRequested Boolean   @default(false) @map("cancel_requested")
+  /// v2: per-run override of the workflow's completion config (async/notify).
+  notifyJson      String?   @map("notify_json")
+  /// v2: running token tally for budget enforcement.
+  tokensUsed      Int       @default(0) @map("tokens_used")
+  steps           RunStep[]
+  events          RunEvent[]
 
   @@index([workflowId])
+  @@index([parentRunId])
   @@map("workflow_runs")
 }
 

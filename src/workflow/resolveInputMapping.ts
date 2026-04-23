@@ -18,7 +18,12 @@ export class InputMappingError extends Error {
 
 /**
  * Resolve a single JSONPath-like expression against the run context.
+ * Exported for callers (map handler, etc) that need single-path lookup.
  */
+export function resolvePathValue(path: string, ctx: RunContext): unknown {
+  return resolvePath(path, ctx);
+}
+
 function resolvePath(path: string, ctx: RunContext): unknown {
   if (!path.startsWith("$.")) {
     // Not a path expression — return as literal value
@@ -31,6 +36,20 @@ function resolvePath(path: string, ctx: RunContext): unknown {
     // $.run.input.<field>[.<nested>...]
     let value: unknown = ctx.run.input;
     for (let i = 2; i < parts.length; i++) {
+      if (value === null || value === undefined || typeof value !== "object") {
+        throw new InputMappingError(
+          `Cannot resolve path '${path}': segment '${parts[i]}' not found (value is ${typeof value})`
+        );
+      }
+      value = (value as Record<string, unknown>)[parts[i]];
+    }
+    return value;
+  }
+
+  if (parts[0] === "item" && parts.length >= 2) {
+    // $.item.<var>[.<nested>...] — set by the map handler per iteration
+    let value: unknown = ctx.item ?? {};
+    for (let i = 1; i < parts.length; i++) {
       if (value === null || value === undefined || typeof value !== "object") {
         throw new InputMappingError(
           `Cannot resolve path '${path}': segment '${parts[i]}' not found (value is ${typeof value})`

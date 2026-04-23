@@ -14,7 +14,9 @@ export type NodeType =
   | "gate"
   | "router"
   | "human_gate"
-  | "finalize";
+  | "finalize"
+  | "subflow"
+  | "map";
 
 /** Model configuration for agent nodes */
 export interface ModelConfig {
@@ -158,6 +160,41 @@ export interface FinalizeNodeConfig {
   slackTitle?: string;
 }
 
+/** Configuration specific to subflow nodes (v2).
+ *
+ * Invokes another workflow as a step. The child run is recorded with
+ * `parentRunId` so Run History can drill through the hierarchy.
+ */
+export interface SubflowNodeConfig {
+  /** ID of the workflow to invoke. */
+  workflowId: string;
+  /** Map parent-run context → child-run input. Same syntax as agent nodes. */
+  inputMapping?: Record<string, string>;
+  /** When false, fire-and-forget; outputs = { childRunId }. Default true. */
+  waitForCompletion?: boolean;
+  /** When true (default), a failed child fails this step. False = treat as completed with outputs.failed=true. */
+  propagateFailure?: boolean;
+}
+
+/** Configuration specific to map nodes (v2) — fan-out over a list.
+ *
+ * Instantiates N copies of `bodyNodeId` in parallel, each seeing one
+ * element of the resolved list as `$.item`. Aggregates outputs into
+ * `outputs.results: Array<StepResult>`.
+ */
+export interface MapNodeConfig {
+  /** `$`-path to the source array. e.g. `$.steps.reader.outputs.items` */
+  over: string;
+  /** Name under which each element is exposed in the child context. */
+  itemVar: string;
+  /** Node id to execute per item. That node must exist in this workflow. */
+  bodyNodeId: string;
+  /** Max concurrent iterations. Default 10. */
+  concurrency?: number;
+  /** When true, abort on first failure. When false, collect all outcomes. Default false. */
+  failFast?: boolean;
+}
+
 /** Union of all node configs based on type */
 export type NodeConfig =
   | InputNodeConfig
@@ -165,7 +202,9 @@ export type NodeConfig =
   | GateNodeConfig
   | RouterNodeConfig
   | HumanGateNodeConfig
-  | FinalizeNodeConfig;
+  | FinalizeNodeConfig
+  | SubflowNodeConfig
+  | MapNodeConfig;
 
 /** A node in the workflow graph */
 export interface WorkflowNode {
@@ -174,17 +213,86 @@ export interface WorkflowNode {
   name: string;
   config: NodeConfig;
   modelConfig?: ModelConfig;
+  /** v2: retry policy. Applies to the handler call for this node. */
+  retry?: RetryPolicy;
 }
 
 // ── Edge types ──────────────────────────────────────────────────────
 
-/** An edge connecting two nodes in the workflow graph */
+/** An edge connecting two nodes in the workflow graph.
+ *
+ * `condition` is REQUIRED when `source` is a gate / router / human_gate
+ * node — it must match one of the source's declared outputs:
+ *   - gate:       "true" | "false"
+ *   - router:     one of config.labels
+ *   - human_gate: one of config.decisionValues
+ */
 export interface WorkflowEdge {
   id: string;
   source: string;
   target: string;
-  /** Reserved for future conditional routing. Not used in v1. */
   condition?: string;
+}
+
+// ── Retry policy (v2) ───────────────────────────────────────────────
+
+/** Per-node retry policy. Applies to agent / router / gate failures. */
+export interface RetryPolicy {
+  /** Max attempts (including the first). Default 1 (= no retry). */
+  maxAttempts?: number;
+  /** First wait before retry, in ms. Default 1000. */
+  initialDelayMs?: number;
+  /** Multiplier applied to delay each retry. Default 2. */
+  backoffMultiplier?: number;
+  /** Only retry on these failure kinds. Default: all. */
+  retryOn?: ("timeout" | "tool_error" | "rate_limit" | "http_5xx")[];
+}
+
+/** Extension point — every NodeConfig may carry a retry policy. */
+export interface WithRetry {
+  retry?: RetryPolicy;
+}
+
+// ── Completion / notify (v2) ────────────────────────────────────────
+
+/** Where to send the run-done notification when async completion is used. */
+export interface NotifyTargets {
+  slackChannel?: string;
+  slackUserId?: string;
+  webhookUrl?: string;
+  email?: string;
+}
+
+/** Workflow-level completion mode + default notify targets. */
+export interface CompletionConfig {
+  /** "sync" = caller blocks; "async" = returns runId immediately. Default "sync". */
+  mode?: "sync" | "async";
+  /** Default notify targets; per-run input may override. */
+  notify?: NotifyTargets;
+}
+
+// ── Triggers (v2) ───────────────────────────────────────────────────
+
+/** Cron + webhook triggers — evaluated by the scheduler daemon at startup
+ * and on every workflow save. */
+export interface TriggerConfig {
+  /** Standard cron expression (5 fields). e.g. "0 9 * * MON". */
+  cron?: string;
+  /** Webhook trigger — auto-registers a POST endpoint at /triggers/<path>. */
+  webhook?: {
+    path: string;
+    /** HMAC secret. If set, requests must include X-Trigger-Signature header. */
+    secret?: string;
+  };
+}
+
+// ── Budget (v2) ─────────────────────────────────────────────────────
+
+/** Per-workflow resource caps. Executor aborts the run on overage. */
+export interface BudgetConfig {
+  maxTokens?: number;
+  maxCostUsd?: number;
+  maxDurationSeconds?: number;
 }
 
 // ── Workflow Schema ─────────────────────────────────────────────────
@@ -193,10 +301,17 @@ export interface WorkflowEdge {
 export interface WorkflowSchema {
   id: string;
   name: string;
+  /** "1.0" for v1, "2.0" for workflows that use v2-only fields. */
   version: string;
   entryNodeId: string;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
+  /** v2: run-completion / notify policy. */
+  completion?: CompletionConfig;
+  /** v2: cron / webhook triggers. */
+  triggers?: TriggerConfig;
+  /** v2: token / cost / duration caps. */
+  budget?: BudgetConfig;
 }
 
 // ── Runtime Context ─────────────────────────────────────────────────
@@ -214,6 +329,12 @@ export interface RunContext {
     input: Record<string, unknown>;
   };
   steps: Record<string, StepResult>;
+  /** v2: the workflow schema this run executes. Set by the executor so
+   *  handlers (e.g. map) can look up sibling nodes without a round-trip. */
+  schema?: WorkflowSchema;
+  /** v2 map: per-iteration item context. Set by the map handler for
+   *  nested handlers to read via resolveInputMapping. */
+  item?: Record<string, unknown>;
 }
 
 // ── Handler signature ───────────────────────────────────────────────
@@ -233,13 +354,27 @@ export type NodeHandler = (
 
 // ── Persistence types ───────────────────────────────────────────────
 
-export type RunStatus = "pending" | "running" | "completed" | "failed";
-export type StepStatus = "running" | "completed" | "failed";
+export type RunStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+export type StepStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "awaiting_approval"
+  | "cancelled";
 
 export type EventType =
   | "workflow_started"
   | "workflow_completed"
   | "step_started"
+  | "step_retry"
+  | "run_cancelled"
+  | "budget_exceeded"
+  | "notify_sent"
   | "step_completed"
   | "step_failed"
   | "error"
