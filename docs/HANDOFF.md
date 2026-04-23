@@ -6,11 +6,26 @@ additions (P0 + P1). Any flow that validates against the v1 schema is
 forward-compatible with v2 — all v2 changes are additive optional
 fields.
 
-**Implementation status** (as of commit `b0d2fc9`): v1 is stable; all
+**Implementation status** (as of commit `0adff26`): v1 is stable; all
 v2 features described in §9 are implemented in the POC and passing
 type-check + fixture validation. Use the POC code as the reference
 implementation; when the mirror diverges, the POC is authoritative for
 behavior.
+
+The v2 work landed in 6 commits on top of v1:
+
+| Commit | Scope |
+|--------|-------|
+| `09494ea` | Schema types (completion, retry, budget, triggers, subflow, map) + Prisma migration adding `parent_run_id`, `cancel_requested`, `notify_json`, `tokens_used` to `workflow_runs`. Subflow + map handler files. |
+| `beb2ab4` | Validator tightening: gate/router/human_gate edge conditions, subflow/map field checks. |
+| `d420d93` | Cancellation endpoint, retry wrapper, notify dispatcher. |
+| `f7f59a7` | Async/notify plumbed into `POST /api/runs` and MCP `start_workflow`. |
+| `b0d2fc9` | Budget enforcement (tokens + duration) + cron/webhook scheduler. |
+| `0adff26` | HANDOFF.md landed. |
+
+See §15 for implementation learnings that differ from what §9 originally
+specced — the spec was mostly right, but a handful of details changed
+during build. The mirror should follow §15, not just §9.
 
 ---
 
@@ -500,15 +515,31 @@ interface WorkflowSchema {
   };
 }
 ```
-Per-run override via `POST /api/runs { workflowId, input, notify?, async? }`.
-When `mode === "async"`, `start_workflow` MCP tool returns immediately
-with `{ runId, status: "running" }`. On terminal status (completed /
-failed), the executor fires notify targets with a signed payload
-`{ runId, status, workflowId, summary, url }`.
+Per-run overrides:
+- REST: `POST /api/runs { workflowId, input, notify? }` — `notify`
+  merges over the workflow's default. REST is always fire-and-forget
+  (returns `{ runId, status: "pending" }` with 202 immediately) — no
+  `async` flag needed.
+- MCP: `start_workflow { workflowId, input, notify?, wait? }` — when
+  `wait: true`, the tool blocks until terminate and returns the final
+  summary inline (useful for chat UIs that want one-shot answers). Default
+  is wait:false (async).
 
-**Retries with backoff** (new per-node field)
+On terminal status (`completed` / `failed` / `cancelled`), the executor
+fires notify targets with `{ runId, workflowId, workflowName, status,
+url, summary }`. **Webhook payloads are unsigned in v2.0** — the spec
+originally said "signed" but the implementation posts plain JSON.
+Add HMAC signing when the mirror hardens this (recommend
+`X-Workflow-Signature: sha256=<hex>` using a per-workflow secret; add
+`webhookSecret` to `NotifyTargets`). Notify dispatch is best-effort:
+failures are logged and recorded in a `notify_sent` event but don't
+affect run status.
+
+**Retries with backoff** (new per-node field — lives on `WorkflowNode`,
+not inside `config`, so every node type can opt in without each config
+interface declaring it)
 ```ts
-interface NodeConfig {
+interface WorkflowNode {
   ...
   retry?: {
     maxAttempts?:       number;               // default 1 (no retry)
@@ -518,8 +549,14 @@ interface NodeConfig {
   };
 }
 ```
-Applies to agent, router, gate. Executor wraps `runHandler` in a retry
-loop; logs each attempt as a separate `step_retry` event.
+Applies to every node type (the executor wraps the handler call
+uniformly). Retries are ATTEMPT-level — the executor re-invokes the
+handler with the same inputs; it does NOT retry individual tool calls
+inside an agent session (those are Anthropic-side). Emits `step_retry`
+events with `{ attempt, maxAttempts, nextDelayMs, kind, message }`.
+Error classification is regex-based on the error message (see
+`classifyError` in `src/workflow/executor.ts`); swap in SDK-specific
+error-type checks when the SDK exposes them.
 
 **Run cancellation** (no schema change)
 - New endpoint: `POST /api/runs/:id/cancel`
@@ -564,8 +601,16 @@ type NodeType = ... | "map";
 ```
 Executor instantiates N copies of `bodyNodeId` with distinct contexts
 (each sees `$.item.<itemVar>`). Outputs aggregate into
-`outputs.results: Array<StepResult>`. `bodyNodeId` must not have other
-inbound edges in the static graph — it's a template.
+`outputs: { total, succeeded, failed, results: Array<{ index, ok,
+outputs?, error? }> }`. `bodyNodeId` must not have other inbound edges
+in the static graph — it's a template. The body node is invoked
+directly (not via the scheduler), so its outgoing edges are IGNORED —
+if you need post-map logic, put a node AFTER the map node itself.
+Per-iteration steps are recorded in `run_steps` with `nodeId` of the
+form `<mapNodeId>[<index>]`. The v2 validator checks `over`, `itemVar`,
+`bodyNodeId` presence + that `bodyNodeId` references an existing node,
+but does NOT currently enforce the "no other inbound edges" rule —
+adding that check in the mirror is recommended.
 
 **Triggers** (new top-level)
 ```ts
@@ -577,9 +622,28 @@ interface WorkflowSchema {
   };
 }
 ```
-A separate scheduler process reads `triggers.cron` across all workflows
-on startup + on every workflow save; submits runs at the scheduled time
-with an empty input (trigger workflows should use default fields).
+**In-process scheduler** — NOT a separate process in v2. Lives in
+`src/workflow/scheduler.ts`, booted from `server.ts`. On startup and
+on every save_workflow call (see `reloadTriggers`), scans all workflows
+and rebuilds the cron + webhook tables. A 60-second tick aligned to
+`:00` fires any workflow whose cron matches the current UTC minute.
+Cron inputs default to `{}` — trigger workflows need to handle empty
+input gracefully (e.g. use default field values).
+
+Webhook triggers auto-register `POST /triggers/<path>`. If `secret` is
+set, requests must include `X-Trigger-Signature: <secret>` (exact
+match — NOT HMAC; harden in the mirror). The posted JSON body becomes
+the run input.
+
+**Cron matcher caveats**: the POC's matcher is a 5-field UTC parser
+supporting `*`, comma lists, `a-b` ranges, `*/n` steps, and day-of-week
+names (`MON`/`TUE`/…). No `L`, `W`, or `#`. Sufficient for POC
+fixtures; swap in `node-cron` / `croner` in the mirror. The interface
+is just `matchCron(expr: string, at: Date): boolean` — single-point
+replacement. The in-process scheduler will miss ticks if the Node
+process is down at the scheduled minute (no catch-up) — for production
+reliability, use a real scheduler with misfire handling, or run the
+tick in a separate always-on worker.
 
 **Token / cost / duration budgets** (new top-level)
 ```ts
@@ -592,9 +656,22 @@ interface WorkflowSchema {
   };
 }
 ```
-Executor tallies per-step token usage from Anthropic responses (`usage`
-field). On overage: emit `budget_exceeded` event, mark run failed,
-cancel pending steps.
+Token accounting: after each managed-agent session ends, the agent
+handler calls `beta.sessions.retrieve(sessionId)` and reads the
+`usage.input_tokens + usage.output_tokens` tally. That value is added
+to `workflow_runs.tokens_used` via `incrementTokensUsed(runId, delta)`.
+The executor checks `tokensUsed > budget.maxTokens` between batches
+and, on overage, emits `budget_exceeded` and throws (which marks the
+run failed and fires notify).
+
+`maxDurationSeconds` is enforced via a wall clock captured when the
+executor starts — checked between batches.
+
+**`maxCostUsd` is specced but NOT enforced** in v2.0 — there's no
+pricing table wired in yet. The mirror should add a small lookup
+(model → input/output $/Mtok) and multiply against the per-step usage
+harvested from `session.retrieve()`. Ideally the pricing table lives in
+config so new models can be added without a deploy.
 
 ### 9.3 Compat contract
 
@@ -660,6 +737,54 @@ NODE_ENV                   # "production" in Render
 10. **Output truncation at 100KB** — Opus can emit multi-MB JSON
     artifacts and fill Postgres TEXT columns. Enforce the cap in
     `completeRunStep`.
+11. **After any Prisma schema edit, `npx prisma generate` must run
+    BEFORE the TypeScript compile** or the client's generated types
+    won't include your new fields. `postinstall: prisma generate` in
+    package.json handles this on install; for local dev add it to the
+    schema-change workflow too.
+12. **`beta.sessions.retrieve(sessionId).usage` is the source of truth
+    for token accounting.** Do NOT try to count tokens from the event
+    stream — tool-using sessions emit spans over many turns and you'll
+    double-count. Retrieve the session after end_turn / terminated;
+    `usage.input_tokens + usage.output_tokens` is the cumulative total.
+13. **Cancellation is flag-based, not interrupt-based.** `cancelRequested`
+    is checked between batches. A step already streaming an Anthropic
+    session will finish — Anthropic doesn't expose mid-session cancel.
+    If mid-step cancel matters, you need to abort the event stream
+    explicitly (not implemented in v2.0).
+14. **Subflow finalize lookup uses node TYPE, not id pattern.** Don't
+    match on `nodeId.includes("finalize")`; look up the finalize node
+    in the child's schema and find the step by that exact `nodeId`.
+15. **Map handler needs the workflow schema at runtime** to look up the
+    body node. The executor sets `ctx.schema` at run start; handlers
+    that need sibling-node lookup read from there. Don't re-fetch from
+    DB inside a handler.
+16. **`$.item.<var>` is a map-only resolver syntax.** The map handler
+    sets `ctx.item` per iteration; `resolveInputMapping` routes
+    `$.item.*` paths to it. Body-node `inputMapping` should use
+    `$.item.<itemVar>` (not `$.run.input.*`) to read the current item.
+17. **Notify fires from the executor's terminal paths, not handlers.**
+    Don't call `dispatchNotify` from anywhere else — you'll double-fire.
+    Subflow child runs will fire their own notify if the child schema
+    has `completion.notify` configured (usually they don't).
+18. **Trigger reload must be called on every workflow save.** The
+    scheduler caches the cron/webhook tables in memory; without a
+    reload, a newly-created workflow with a trigger won't fire. Our
+    `save_workflow` custom tool and (if you add it) `POST /api/workflows`
+    must both call `reloadTriggers()`.
+19. **The in-process scheduler will miss cron ticks during restarts.**
+    No catch-up window in v2.0. If misfire handling matters, move the
+    tick to an always-on worker or persist last-fired timestamps per
+    workflow and replay missed windows on boot.
+20. **`postinstall` runs `prisma generate` on Render builds** (see
+    package.json). This also means that if Render's build step fails
+    before postinstall, your Prisma client may be stale. Watch for
+    cryptic "property does not exist" errors on the first deploy after
+    a schema change — usually means the migration didn't run.
+21. **v2.0 webhook notify payloads are UNSIGNED.** Don't trust them
+    across a public boundary. Either run the mirror behind auth, or add
+    HMAC signing (see §9.1 note) before exposing the webhook to a
+    third-party consumer.
 
 ---
 
@@ -756,7 +881,135 @@ prisma/
 - Flow builder tools: `src/tools/flowBuilder.ts`
 - Schema validator: `src/workflow/schemaValidator.ts`
 - Input resolver: `src/workflow/resolveInputMapping.ts`
+- Notify dispatcher: `src/workflow/notify.ts`
+- Scheduler (cron + webhook): `src/workflow/scheduler.ts`
+- Subflow handler: `src/workflow/nodeHandlers/subflowNodeHandler.ts`
+- Map handler: `src/workflow/nodeHandlers/mapNodeHandler.ts`
+- Reconcile orphan agents: `src/scripts/reconcileAgents.ts`
 - Fixtures (ground-truth test set): `src/workflow/fixtures/*.json`
 
 The mirror should treat the fixtures as a regression suite; a fixture
 that fails to run identically on the mirror is a bug in the mirror.
+
+---
+
+## 15. v2 implementation learnings (the things §9 got almost-right)
+
+This section captures what changed between the §9 spec and the
+shipping implementation. When §9 and §15 disagree, §15 wins — the
+code behaves the way §15 describes.
+
+### 15.1 Where things ended up
+
+- `retry` lives on `WorkflowNode` (top level of the node object), not
+  inside `config`. All node types can opt in without each config
+  interface needing a `retry?` field.
+- `RunContext` carries `schema?: WorkflowSchema` and `item?: Record<string,
+  unknown>`. The executor sets `schema`; the map handler sets `item`
+  per iteration.
+- `resolveInputMapping` recognizes three path roots: `$.run.input.*`,
+  `$.steps.<id>.outputs.*`, and `$.item.*` (map body nodes only).
+  `resolvePathValue(path, ctx)` is exported for handlers that need to
+  resolve a single path (used by map's `over`).
+- `WorkflowRun` gained 4 columns (`parent_run_id`, `cancel_requested`,
+  `notify_json`, `tokens_used`) in migration `20260423150031_v2_run_controls`.
+- `createWorkflowRun(workflowId, input, { parentRunId?, notify? })` —
+  the optional second arg is how subflows attach children and
+  per-run notify overrides get persisted.
+- Terminal statuses are `completed | failed | cancelled`. `updateRunStatus`
+  sets `completedAt` on any of the three.
+- Event types added: `step_retry`, `run_cancelled`, `budget_exceeded`,
+  `notify_sent`.
+
+### 15.2 Things that differ from §9
+
+- `POST /api/runs` does NOT take an `async` flag. REST is always
+  fire-and-forget (202 immediately). The sync/async distinction exists
+  only on the MCP `start_workflow` tool, via the `wait: boolean`
+  parameter. Chat UIs that want a blocking answer should use MCP with
+  `wait: true`.
+- Notify payloads are NOT signed in v2.0. Plan to add HMAC before the
+  webhook leaves a trusted network.
+- Validator currently applies the tightened edge-condition rules to
+  BOTH v1 and v2 workflows — it does not downgrade them to warnings
+  for v1 as §9.3 suggested. Every bundled fixture was already compliant,
+  so no pain. If you need a downgrade path in the mirror, add it — but
+  verify the existing fixtures against it first.
+- Map handler's body node is invoked DIRECTLY (bypassing the scheduler),
+  so any outgoing edges from the body node are unreachable. `failFast:
+  false` is the default — collect every result even if some fail.
+- Subflow's harvested outputs are the finalize step's `outputs` spread
+  onto the subflow node's outputs, PLUS `childRunId` and `childStatus`.
+  Callers can read either the flattened fields or navigate
+  `steps.<subflowNodeId>.outputs.childRunId` explicitly.
+- Scheduler is in-process. The "separate scheduler process" language
+  in §9.2 is aspirational — move it there if horizontal scaling or
+  misfire handling demands it.
+- Budget tracks TOKENS and DURATION only. `maxCostUsd` validates and
+  is stored but is not enforced at runtime. Wire it in the mirror.
+
+### 15.3 Event reference (full set shipped)
+
+| Event | Fired by | Payload shape |
+|---|---|---|
+| `workflow_started` | executor start | `{ workflowId, workflowName, entryNode, inputKeys }` |
+| `step_started` | before each handler call | `{ nodeId, nodeType, nodeName, mapIndex? }` |
+| `step_completed` | after handler success | `{ nodeId, outputKeys }` |
+| `step_failed` | after handler failure | `{ nodeId, error, note? }` |
+| `step_retry` | between retry attempts | `{ nodeId, attempt, maxAttempts, nextDelayMs, kind, message }` |
+| `workflow_completed` | run completed (no finalize) | `{ note }` |
+| `error` | uncaught executor error | `{ message, stack }` |
+| `max_steps_exceeded` | >100 steps executed | `{ totalExecuted }` |
+| `server_restart` | orphan recovery on boot | `{}` |
+| `run_cancelled` | cancel flag observed | `{ executedBeforeCancel }` |
+| `budget_exceeded` | budget cap hit | `{ kind: "tokens" | "duration", ...metrics }` |
+| `notify_sent` | after notify dispatch | `{ status, targetsConfigured, succeeded, total }` |
+
+### 15.4 Concrete test recipes for the mirror
+
+Recipes that exercise the v2 surface end-to-end:
+
+1. **Retry on flaky tool**: build a workflow with an agent that calls a
+   custom tool backed by a function that throws the first 2 invocations
+   then succeeds. Set `retry: { maxAttempts: 3 }` on the node. Run
+   should complete; expect 2 `step_retry` events.
+2. **Cancel mid-human-gate**: start `tpsReport.json`; while the first
+   human gate is polling, `POST /api/runs/:id/cancel`. Run should
+   transition to `cancelled` within ~5s (the poll interval).
+3. **Notify-on-done**: any workflow with `completion.notify.webhookUrl`
+   pointing at `https://webhook.site/<your-bucket>`. Run should deliver
+   the final payload on success.
+4. **Subflow**: create `wf-parent` whose agent node emits a list, then
+   a subflow node pointing to `wf-concierge` with `inputMapping`. Both
+   runs visible in Run History with parent/child link.
+5. **Map**: synthesize a workflow with a gate that produces a 5-item
+   array, then a map node that dispatches 5 parallel concierge calls.
+   Expect 5 `run_steps` rows keyed `<mapNodeId>[0..4]` with `ok: true`.
+6. **Cron**: publish a workflow with `triggers: { cron: "*/2 * * * *" }`.
+   Within 2 minutes, a new run should appear with empty input. Check
+   the scheduler log line `[scheduler] cron fire:`.
+7. **Webhook**: publish a workflow with `triggers: { webhook: { path:
+   "ping" } }`. `curl -X POST $URL/triggers/ping -d '{"hello":"world"}'`
+   should 202 with a runId; the run's input should match the body.
+8. **Budget**: publish a workflow with `budget: { maxDurationSeconds: 5 }`
+   and an agent node whose timeout is 60s but whose prompt asks for a
+   very long response. Run should fail with `budget_exceeded` (kind
+   duration) within ~5s after the first batch.
+
+### 15.5 Known deferrals (explicitly not built)
+
+- `maxCostUsd` enforcement (no pricing resolver)
+- Signed webhook notify payloads
+- `email` notify dispatch (stub only — use webhook + external service)
+- Missed-cron catch-up after restart
+- Map handler's static-graph edges on the body node (ignored, not
+  validated against)
+- Step-level resume after crash (run restart = full re-execute;
+  orphaned runs marked failed on boot)
+- React Flow editor nodes for subflow / map / retry / budget / triggers
+  — backend is complete, UI is next pass
+- Per-workflow concurrency limits / rate limits
+- Secrets vault / per-flow env binding
+
+All of these are fine for the POC and demo but belong in the mirror's
+definition-of-done.
