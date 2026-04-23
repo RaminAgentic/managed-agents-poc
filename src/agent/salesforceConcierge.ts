@@ -25,7 +25,8 @@ import {
   dispatchSalesforceTool,
 } from "../tools/salesforce";
 
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-opus-4-7";
+const SPEED: "standard" | "fast" = "fast";
 
 const SYSTEM_PROMPT = `
 You are the Salesforce concierge for a sales + revenue-ops team.
@@ -110,12 +111,14 @@ async function getOrCreateConciergeAgent(): Promise<string> {
   agentPromise = (async () => {
     const agent = await anthropic.beta.agents.create({
       name: "Salesforce concierge",
-      model: MODEL,
+      model: { id: MODEL, speed: SPEED },
       system: SYSTEM_PROMPT,
       tools,
     });
     cachedAgentId = agent.id;
-    console.log(`[concierge] cached agent ${agent.id}`);
+    console.log(
+      `[concierge] cached agent ${agent.id} (${MODEL}, speed=${SPEED})`
+    );
     return agent.id;
   })();
 

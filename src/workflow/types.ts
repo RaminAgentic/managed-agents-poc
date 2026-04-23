@@ -21,6 +21,12 @@ export interface ModelConfig {
   model?: string;
   maxTokens?: number;
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /**
+   * Managed agents inference-speed knob. `fast` runs at premium pricing
+   * with ~3-5x faster output generation. Not all models support it —
+   * invalid combinations are rejected at agent-create time.
+   */
+  speed?: "standard" | "fast";
 }
 
 /** A single input field with metadata for conversational collection. */

@@ -51,6 +51,7 @@ const DEFAULT_MODEL = "claude-opus-4-7";
 interface AgentIdentity {
   instructions: string;
   model?: string;
+  speed?: "standard" | "fast";
   mcpServers?: AgentNodeConfig["mcpServers"];
   tools?: AgentNodeConfig["tools"];
   skills?: AgentNodeConfig["skills"];
@@ -62,6 +63,7 @@ function buildIdentity(
 ): AgentIdentity {
   const identity: AgentIdentity = { instructions: config.instructions };
   if (modelConfig?.model) identity.model = modelConfig.model;
+  if (modelConfig?.speed) identity.speed = modelConfig.speed;
   if (config.mcpServers && config.mcpServers.length > 0) {
     identity.mcpServers = config.mcpServers;
   }
@@ -157,6 +159,7 @@ export async function findOrCreateAgent(params: {
   const anthropicAgent = await createAnthropicAgent({
     name: `${nodeName} (${nodeId})`.slice(0, 100),
     model: modelConfig?.model ?? DEFAULT_MODEL,
+    speed: modelConfig?.speed,
     instructions: config.instructions,
     mcpServers: config.mcpServers,
     tools: expandTools(config),
@@ -213,14 +216,20 @@ export async function findOrCreateAgent(params: {
 async function createAnthropicAgent(params: {
   name: string;
   model: string;
+  speed?: "standard" | "fast";
   instructions: string;
   mcpServers?: AgentNodeConfig["mcpServers"];
   tools?: AgentNodeConfig["tools"];
   skills?: AgentNodeConfig["skills"];
 }): Promise<{ id: string }> {
+  const modelField: Anthropic.Beta.Agents.AgentCreateParams["model"] =
+    params.speed
+      ? ({ id: params.model, speed: params.speed } as unknown as Anthropic.Beta.Agents.AgentCreateParams["model"])
+      : (params.model as Anthropic.Beta.Agents.AgentCreateParams["model"]);
+
   const body: Anthropic.Beta.Agents.AgentCreateParams = {
     name: params.name,
-    model: params.model as Anthropic.Beta.Agents.AgentCreateParams["model"],
+    model: modelField,
     system: params.instructions,
   };
   if (params.tools && params.tools.length > 0) {
@@ -233,7 +242,7 @@ async function createAnthropicAgent(params: {
     body.skills = params.skills as Anthropic.Beta.Agents.AgentCreateParams["skills"];
   }
   console.log(
-    `[agentRegistry] creating Anthropic agent "${params.name}" — model=${params.model}, mcp=${params.mcpServers?.length ?? 0}, tools=${params.tools?.length ?? 0}, skills=${params.skills?.length ?? 0}`
+    `[agentRegistry] creating Anthropic agent "${params.name}" — model=${params.model}${params.speed ? ` (speed=${params.speed})` : ""}, mcp=${params.mcpServers?.length ?? 0}, tools=${params.tools?.length ?? 0}, skills=${params.skills?.length ?? 0}`
   );
   const agent = await anthropic.beta.agents.create(body);
   return { id: agent.id };
