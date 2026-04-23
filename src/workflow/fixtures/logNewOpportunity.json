@@ -1,0 +1,131 @@
+{
+  "id": "wf-log-new-opportunity",
+  "name": "Log New Opportunity",
+  "version": "1.0",
+  "entryNodeId": "input",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "input",
+      "name": "Deal intake",
+      "config": {
+        "description": "Log a new sales opportunity into Salesforce. Gathers a short intake from the rep, auto-enriches the company from the web, writes a complete Account + Contact + Opportunity record (not just an empty shell), and drafts next steps + a follow-up email. The rep never pastes Salesforce IDs.",
+        "fields": {
+          "companyName": {
+            "description": "Name of the company / prospect.",
+            "type": "string",
+            "required": true,
+            "example": "Acme Toys"
+          },
+          "dealSize": {
+            "description": "Estimated deal size in USD.",
+            "type": "number",
+            "required": true,
+            "example": "200000"
+          },
+          "contactName": {
+            "description": "Primary contact at the company (their name).",
+            "type": "string",
+            "required": true,
+            "example": "Jane Park"
+          },
+          "contactEmail": {
+            "description": "Primary contact's email (optional — improves LinkedIn/web lookup).",
+            "type": "email",
+            "required": false,
+            "example": "jane@acmetoys.com"
+          },
+          "productInterest": {
+            "description": "What our product/offering they're interested in (if known).",
+            "type": "string",
+            "required": false,
+            "example": "Enterprise tier, data connectors"
+          },
+          "expectedClose": {
+            "description": "When you think the deal closes. Quarter or date.",
+            "type": "string",
+            "required": false,
+            "example": "End of Q3 2026"
+          },
+          "notes": {
+            "description": "Freeform notes from the conversation — objections raised, competitors mentioned, context.",
+            "type": "string",
+            "required": false,
+            "example": "Evaluating against Competitor X; cares a lot about SOC 2; decision by end of quarter"
+          }
+        }
+      }
+    },
+    {
+      "id": "enricher",
+      "type": "agent",
+      "name": "Company enrichment",
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "high" },
+      "config": {
+        "instructions": "You enrich a sales prospect by searching the public web. You will receive an `intake` object with the company name and other details.\n\nDo the following:\n1. Search the web for the company's official website, industry, rough employee count, HQ location, and a short description of what they do.\n2. Pull 1–2 recent (last 6 months) news items: funding, leadership change, expansion, product launch, etc. — things a sales rep would want to mention.\n3. If any competitors are mentioned in the intake notes, search for what's known about how the company has used those competitors (review sites, case studies, forum mentions).\n4. If the contact name was given, search for their role / seniority / background. Do NOT scrape private data — only public bios or LinkedIn-style public summaries.\n\nReturn JSON:\n{\n  \"website\": \"https://...\",\n  \"industry\": \"...\",\n  \"employeeCount\": \"~500\" (or a number),\n  \"headquarters\": \"city, country\",\n  \"description\": \"2-3 sentence company summary\",\n  \"recentNews\": [{ \"headline\": \"...\", \"date\": \"YYYY-MM\", \"source\": \"...\" }],\n  \"contactRole\": \"Title, if found\",\n  \"competitorIntel\": \"1-2 sentences, if any competitors mentioned in notes\",\n  \"talkingPoints\": [\"3 specific things the rep could bring up in the next conversation\"]\n}\n\nDo NOT invent data. If you can't find a field, set it to null — it's fine to be partial.",
+        "inputMapping": {
+          "intake": "$.run.input"
+        },
+        "outputFormat": "json",
+        "timeoutSeconds": 300,
+        "tools": [
+          { "type": "agent_toolset_20260401" }
+        ]
+      }
+    },
+    {
+      "id": "sf-writer",
+      "type": "agent",
+      "name": "Salesforce logger",
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "high" },
+      "config": {
+        "instructions": "You write the enriched deal into Salesforce. You'll receive `intake` (the original form values) and `enrichment` (the web research).\n\n1. Find-or-create the Account:\n   - sf_query for existing Account by Name LIKE.\n   - If a close match exists, use it and sf_update with any enrichment fields that are currently blank (Website, Industry, Description, NumberOfEmployees, BillingCity, BillingCountry).\n   - Otherwise sf_create a new Account with Name = intake.companyName, and all enrichment fields populated.\n\n2. Find-or-create the Contact:\n   - sf_query Contact by Name + AccountId.\n   - If missing, sf_create with FirstName/LastName split from intake.contactName, Email = intake.contactEmail, AccountId, Title = enrichment.contactRole.\n\n3. Find-or-create the Opportunity:\n   - sf_query open Opportunities on this Account with similar name.\n   - If none matches, sf_create with:\n     Name = `${intake.companyName} — ${intake.productInterest || 'New opportunity'}`\n     AccountId\n     Amount = intake.dealSize\n     CloseDate = parsed from intake.expectedClose (or 90 days out if blank)\n     StageName = 'Prospecting'\n     Description = intake.notes\n     LeadSource = 'Rep Meeting'\n\n4. Return JSON: { accountId, accountName, contactId, opportunityId, opportunityName, created: { account: bool, contact: bool, opportunity: bool } }\n\nDo NOT post to Chatter yet — that's the next step. Just persist the records and return the IDs.",
+        "inputMapping": {
+          "intake": "$.run.input",
+          "enrichment": "$.steps.enricher.outputs.parsed"
+        },
+        "outputFormat": "json",
+        "timeoutSeconds": 300,
+        "includeSalesforceTools": true,
+        "tools": [
+          { "type": "agent_toolset_20260401" }
+        ]
+      }
+    },
+    {
+      "id": "next-steps",
+      "type": "agent",
+      "name": "Next steps + Chatter",
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "high" },
+      "config": {
+        "instructions": "You close the loop on a newly-logged opportunity. You have the enrichment research, the intake notes, and the Salesforce IDs (`sf.opportunityId`, `sf.accountId`).\n\nDo the following:\n\n1. Suggest 3 specific, concrete next actions the rep should take — not generic ('follow up') but specific ('Send a 1-pager comparing us to Competitor X — their VP of Eng tweeted about evaluation last week'). Tie at least one to the enrichment.\n\n2. Draft a follow-up email to the primary contact: 4-6 sentences, referencing something specific from the enrichment (recent news, or their role). Include a clear ask (15-min call, intro to another stakeholder, etc.).\n\n3. Post a Chatter feed item on the Opportunity (use sf_chatter with parentId = sf.opportunityId). Format:\n   *Logged by the managed-agents POC.*\n   **Company:** <name> (<industry>, ~<employees> employees, <HQ>)\n   **Recent news:** <bulleted list of headlines>\n   **Talking points:** <3 bullets from enrichment>\n   **Suggested next steps:** <3 bullets>\n   **Draft follow-up email:** <include the email body>\n\n4. Return a short final summary + the Chatter feed item Id + an `### Visual Artifact` block with a React card summarizing: company name, industry + employee count, 3 talking points, 3 next steps, and a 'Draft email' collapsible. Use Tailwind, under 180 lines. Default-export the component.",
+        "inputMapping": {
+          "intake": "$.run.input",
+          "enrichment": "$.steps.enricher.outputs.parsed",
+          "sf": "$.steps.sf-writer.outputs.parsed"
+        },
+        "timeoutSeconds": 300,
+        "includeSalesforceTools": true,
+        "tools": [
+          { "type": "agent_toolset_20260401" }
+        ]
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "name": "Finalize",
+      "config": {
+        "summaryFields": ["text"],
+        "slackChannel": "#sales-ops",
+        "slackTitle": "New opportunity logged: {{input.companyName}} (${{input.dealSize}})"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e-in-enr",  "source": "input",      "target": "enricher"   },
+    { "id": "e-enr-sf",  "source": "enricher",   "target": "sf-writer"  },
+    { "id": "e-sf-ns",   "source": "sf-writer",  "target": "next-steps" },
+    { "id": "e-ns-fi",   "source": "next-steps", "target": "finalize"   }
+  ]
+}
