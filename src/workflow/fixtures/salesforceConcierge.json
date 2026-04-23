@@ -1,0 +1,51 @@
+{
+  "id": "wf-concierge",
+  "name": "Salesforce Concierge",
+  "version": "1.0",
+  "entryNodeId": "input",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "input",
+      "name": "Request",
+      "config": {
+        "description": "Talk to Salesforce in plain English. Log a new deal (with automatic web enrichment), pull a pipeline report, update a record, post to Chatter. Finds-or-creates any records needed — never asks the user for IDs.",
+        "fields": {
+          "request": {
+            "description": "Plain English description of what you want done in Salesforce.",
+            "type": "string",
+            "required": true,
+            "example": "I just met with Acme Toys, enterprise tier ~$200k, contact Jane Park, log it."
+          }
+        }
+      }
+    },
+    {
+      "id": "concierge",
+      "type": "agent",
+      "name": "Salesforce concierge",
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "high" },
+      "config": {
+        "instructions": "You are the Salesforce concierge for a sales + revenue-ops team. Be fast, concise, and decisive. The user talks to you in plain English — their exact request is in `request`.\n\nTools:\n  • sf_* — SOQL query, create, update, upsert, describe, Chatter (read + post)\n  • agent_toolset_20260401 — web search for public info (only when enrichment is needed)\n\nRules of engagement (read carefully):\n  1. Plan before you act. Decide the MINIMUM set of tool calls that answers the question. Most report questions need ONE aggregate SOQL query, not five. Don't double-check yourself.\n  2. No redundant queries. Never run the same or near-identical SOQL twice.\n  3. Only web-search when the ask explicitly needs external info (a new company you're logging). Don't web-search for internal reports.\n  4. Users never paste Salesforce IDs. If they name a customer, find-or-create the Account (sf_query LIKE first, sf_create if missing).\n  5. Be decisive. No clarifying questions unless the ambiguity really blocks the work.\n\nOutput format:\n  • For report questions (pipeline, closed deals, slipping deals): lead with a 1-2 sentence headline, then a compact table or bullet list of the key numbers. For non-trivial reports, append a `### Visual Artifact` section with a single fenced ```jsx block — default-exported React component, Tailwind, under 120 lines, simple styled divs (no chart libs).\n  • For mutating actions (log a deal, update a record): report what you did in 3-4 sentences. Include the record Name but not its Id unless asked.\n  • For enrichment + log: pull the public facts in one or two web searches, create/update records, post a Chatter summary, and reply with a short confirmation plus 3 talking points.\n\nNever narrate your steps mid-session. Just do the work and report the result at the end.",
+        "inputMapping": {
+          "request": "$.run.input.request"
+        },
+        "timeoutSeconds": 300,
+        "includeSalesforceTools": true,
+        "tools": [
+          { "type": "agent_toolset_20260401" }
+        ]
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "name": "Finalize",
+      "config": { "summaryFields": ["text"] }
+    }
+  ],
+  "edges": [
+    { "id": "e-in-c",   "source": "input",     "target": "concierge" },
+    { "id": "e-c-fi",   "source": "concierge", "target": "finalize"  }
+  ]
+}

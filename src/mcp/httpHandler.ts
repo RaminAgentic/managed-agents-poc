@@ -25,8 +25,8 @@ import type { WorkflowSchema } from "../workflow/types";
 import { renderRunAsReactArtifact } from "../workflow/renderRunArtifact";
 import { renderWorkflowMermaid } from "../workflow/renderMermaid";
 import {
-  startSalesforceConciergeAsync,
-  getConciergeStatus,
+  startConciergeRun,
+  pollConciergeResult,
 } from "../agent/salesforceConcierge";
 
 // ── Tool Schemas ───────────────────────────────────────────────────────
@@ -63,18 +63,10 @@ const salesforceConciergeSchema = z.object({
     .string()
     .min(1)
     .describe(
-      "Describe what you want done with Salesforce, in plain English. Examples: 'I just met with Acme Toys, log a ~$200k enterprise opp for Q3', 'how's our pipeline this quarter', 'who are the slipping deals over $100k'. The agent will find-or-create the necessary records, enrich from the web if useful, and for reports it will return a React chart you can render as an artifact. This tool kicks off the work in the background and returns a sessionId immediately; poll concierge_status(sessionId) for progress and the final result."
+      "Describe what you want done with Salesforce, in plain English. Examples: 'I just met with Acme Toys, log a ~$200k enterprise opp for Q3', 'how's our pipeline this quarter', 'who are the slipping deals over $100k'. The agent will find-or-create the necessary records, enrich from the web if useful, and for reports return a React chart you can render as an artifact. Runs through the standard wf-concierge workflow so every call is visible in Run History."
     ),
 });
 
-const conciergeStatusSchema = z.object({
-  sessionId: z
-    .string()
-    .min(1)
-    .describe(
-      "The sessionId returned from salesforce_concierge. Returns current status (running / completed / failed), the list of tools invoked so far, and the agent's text output (partial while running, full when completed)."
-    ),
-});
 
 const AGENT_NODE_GUIDE = `
 Each workflow node is one of:
@@ -166,29 +158,26 @@ async function handleSalesforceConcierge(
   input: z.infer<typeof salesforceConciergeSchema>
 ): Promise<ToolResult> {
   try {
-    const { sessionId } = await startSalesforceConciergeAsync({
-      request: input.request,
-    });
+    // Start the real wf-concierge workflow and long-poll the run's DB
+    // state. No parallel execution path — the concierge is a normal
+    // governed flow visible in Run History.
+    const { runId } = await startConciergeRun(input.request);
 
-    // Bounded long-poll. Most asks complete within 2 min. Cowork's MCP
-    // client accepts long tool calls; this keeps the whole concierge
-    // interaction to a single call so we don't depend on the client
-    // having the concierge_status tool in its list.
     const DEADLINE_MS = 120_000;
-    const POLL_INTERVAL_MS = 500;
+    const POLL_INTERVAL_MS = 1_000;
     const deadline = Date.now() + DEADLINE_MS;
 
     while (Date.now() < deadline) {
-      const state = getConciergeStatus(sessionId);
-      if (state && state.status === "completed") {
-        return { content: [{ type: "text", text: state.text }] };
+      const result = await pollConciergeResult(runId);
+      if (result.status === "completed") {
+        return { content: [{ type: "text", text: result.text }] };
       }
-      if (state && state.status === "failed") {
+      if (result.status === "failed") {
         return {
           content: [
             {
               type: "text",
-              text: `Concierge failed: ${state.error ?? "unknown error"}`,
+              text: `Concierge failed: ${result.error ?? "unknown error"}`,
             },
           ],
           isError: true,
@@ -197,18 +186,17 @@ async function handleSalesforceConcierge(
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
-    // Timed out — return whatever partial text the agent produced.
-    // No sessionId or retry hint; Cowork just shows this to the user.
-    const state = getConciergeStatus(sessionId);
-    const partial = state?.text?.trim() ?? "";
+    const partial = await pollConciergeResult(runId);
     return {
       content: [
         {
           type: "text",
-          text: partial
-            ? partial +
-              "\n\n_(Still finalizing — this may continue in the background.)_"
-            : "The concierge is taking longer than expected. Try a narrower ask or retry.",
+          text: partial.text
+            ? partial.text +
+              "\n\n_(Still finalizing — this may continue in the background. View the full run at /runs/" +
+              runId +
+              ")_"
+            : `The concierge is taking longer than expected. View progress at /runs/${runId}.`,
         },
       ],
     };
@@ -217,79 +205,12 @@ async function handleSalesforceConcierge(
       content: [
         {
           type: "text",
-          text: `Concierge start error: ${(err as Error).message}`,
+          text: `Concierge error: ${(err as Error).message}`,
         },
       ],
       isError: true,
     };
   }
-}
-
-async function handleConciergeStatus(
-  input: z.infer<typeof conciergeStatusSchema>
-): Promise<ToolResult> {
-  const state = getConciergeStatus(input.sessionId);
-  if (!state) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `No session ${input.sessionId} found. It may have expired (we keep the last 100) or the server restarted.`,
-        },
-      ],
-      isError: true,
-    };
-  }
-
-  const toolLine =
-    state.toolCalls.length > 0
-      ? `**Tools used so far:** ${state.toolCalls.join(", ")}\n\n`
-      : "";
-  const elapsed = Math.round(
-    (new Date(state.completedAt ?? new Date().toISOString()).getTime() -
-      new Date(state.startedAt).getTime()) /
-      1000
-  );
-
-  if (state.status === "running") {
-    return {
-      content: [
-        {
-          type: "text",
-          text:
-            `**Status:** :hourglass_flowing_sand: still running (${elapsed}s elapsed)\n\n` +
-            toolLine +
-            (state.text
-              ? `_Partial output so far:_\n\n${state.text.slice(0, 600)}${state.text.length > 600 ? "…" : ""}\n\n`
-              : "") +
-            `Check again in ~10 seconds.`,
-        },
-      ],
-    };
-  }
-
-  if (state.status === "failed") {
-    return {
-      content: [
-        {
-          type: "text",
-          text:
-            `**Status:** :x: failed after ${elapsed}s\n\n${toolLine}**Error:** ${state.error ?? "unknown"}`,
-        },
-      ],
-      isError: true,
-    };
-  }
-
-  return {
-    content: [
-      {
-        type: "text",
-        text:
-          `**Status:** :white_check_mark: completed in ${elapsed}s\n\n${toolLine}${state.text}`,
-      },
-    ],
-  };
 }
 
 async function handleDescribeWorkflow(
@@ -710,18 +631,11 @@ export function createMcpServer(): McpServer {
   // ─── Tool: salesforce_concierge ────────────────────────────────────
   server.tool(
     "salesforce_concierge",
-    "Talk to Salesforce in plain English. Preferred tool for ad-hoc Salesforce work: logging a new deal (with automatic web enrichment), asking pipeline questions, updating a record, posting to Chatter. Finds-or-creates records — users never paste IDs. Usually returns the final answer directly. For very long asks, may return a handoff message with a sessionId you can pass to concierge_status.",
+    "Talk to Salesforce in plain English. Preferred tool for ad-hoc Salesforce work: logging a new deal (with automatic web enrichment), asking pipeline questions, updating a record, posting to Chatter. Finds-or-creates records — users never paste IDs. Runs as a real wf-concierge workflow so every call is visible in Run History.",
     salesforceConciergeSchema.shape,
     async (input) => handleSalesforceConcierge(input)
   );
 
-  // ─── Tool: concierge_status ────────────────────────────────────────
-  server.tool(
-    "concierge_status",
-    "Check the status of a Salesforce concierge session. Returns running / completed / failed, tools invoked so far, and the agent's output (partial while running, complete on success). Poll every ~10 seconds after calling salesforce_concierge.",
-    conciergeStatusSchema.shape,
-    async (input) => handleConciergeStatus(input)
-  );
 
   // ─── Tool: list_workflows ──────────────────────────────────────────
   server.tool(
@@ -771,7 +685,7 @@ export function createMcpServer(): McpServer {
     async (input) => handleCreateWorkflow(input)
   );
 
-  console.log("[mcp-http] McpServer created with 8 tools (direct service layer)");
+  console.log("[mcp-http] McpServer created with 7 tools (direct service layer)");
 
   return server;
 }

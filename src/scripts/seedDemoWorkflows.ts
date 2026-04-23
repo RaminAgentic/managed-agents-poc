@@ -17,6 +17,7 @@ import { validateWorkflowSchema } from "../workflow/schemaValidator";
 const FIXTURES_DIR = path.join(__dirname, "..", "workflow", "fixtures");
 
 const DEMO_FILES = [
+  "salesforceConcierge.json",
   "incidentCommander.json",
   "dealDesk.json",
   "tpsReport.json",
