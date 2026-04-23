@@ -3,7 +3,7 @@ import { anthropic } from "../config/anthropic";
 import { runAgent } from "./runAgent";
 import { runResearchAgent } from "./researchAgent";
 
-const MODEL = "claude-sonnet-4-5";
+const MODEL = "claude-opus-4-7";
 
 /**
  * System prompt for the intent classifier.

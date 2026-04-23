@@ -26,7 +26,7 @@ import prisma from "../db/client";
 import { anthropic } from "../config/anthropic";
 import type { AgentNodeConfig, ModelConfig } from "./types";
 
-const DEFAULT_MODEL = "claude-sonnet-4-5";
+const DEFAULT_MODEL = "claude-opus-4-7";
 
 /**
  * The subset of config fields that define an Anthropic agent's identity.

@@ -24,7 +24,7 @@
       "id": "drafter",
       "type": "agent",
       "name": "TPS report drafter",
-      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "high" },
       "config": {
         "instructions": "You are the TPS Report Officer. It is the most important job at Initech. For the given reporting period:\n\n1. Pull pipeline movement from Salesforce (opportunities created / stage-advanced / closed-won / closed-lost). Totals plus deltas vs. prior period.\n2. Produce a Word document (.docx) titled 'TPS_Report_<period>.docx' with these sections in this exact order:\n   - **COVER SHEET** — contains the phrase 'NEW COVER SHEET — Revision 2026' prominently at the top. This is MANDATORY per corporate policy.\n   - **Executive Summary** (3 bullets, no more)\n   - **Pipeline Movement** (a small table with the SF numbers)\n   - **Red Flags** (slipped deals, closed-lost with reasons)\n   - **Signatures Block** — signature lines for: Bill Lumbergh, Milton Waddams, Peter Gibbons. Leave them blank for now.\n3. Upload the docx to the TPS reports Google Drive folder. Return the file URL as `reportUrl` in your output.\n4. Return JSON like { summary: string, reportUrl: string, numbers: { created, advanced, won, lost, wonAmount, lostAmount }, redFlags: string[] }.\n5. AFTER the JSON, append a separator `### Visual Artifact` and a single fenced ```jsx block with a default-exported React component visualizing the report (title, numbers as big stat cards, a simple bar chart of won vs lost using styled divs, red flags list). Use Tailwind. 1999 corporate aesthetic — beige, Times New Roman feel, a stamp that says 'NEW COVER SHEET'. Keep it under 180 lines. This will be rendered as an artifact for the user.\n\nTone: formally absurd. Corporate. Imagine it's 1999.",
         "inputMapping": {
@@ -89,7 +89,7 @@
       "id": "stapler",
       "type": "agent",
       "name": "Stapler + publish",
-      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "medium" },
       "config": {
         "instructions": "The TPS report has been approved by all three signatories. Your job:\n\n1. Update the .docx cover sheet signature block with the three approvers' names and today's date.\n2. Upload the final version back to Google Drive alongside the draft.\n3. Post the final link to the #tps-reports channel with the message: ':office: *TPS Report stapled and filed.* Please note that the rainbow suspenders wearing individual is no longer with the company. Have a great weekend.'\n4. Return a short summary with the final URL.\n\nAFTER your summary, append `### Visual Artifact` and a single fenced ```jsx block with a default-exported React component of a fake 'APPROVED' stamp overlay on a paper-looking TPS report card — the three signatories with checkmarks, the cover sheet thumbnail with a red 'NEW COVER SHEET' stamp rotated 15°, and a 'STAPLED' badge in the bottom right. Absurd corporate 1999 aesthetic. Tailwind, under 150 lines. Renders as an artifact.\n\nIf absurdity feels appropriate elsewhere, lean in.",
         "inputMapping": {

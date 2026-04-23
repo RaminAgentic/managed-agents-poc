@@ -36,14 +36,14 @@
         "inputMapping": {
           "driveFolderUrl": "$.run.input.driveFolderUrl"
         },
-        "model": "claude-sonnet-4-6"
+        "model": "claude-opus-4-7"
       }
     },
     {
       "id": "hnw-profile",
       "type": "agent",
       "name": "HNW profile builder",
-      "modelConfig": { "model": "claude-opus-4-6" },
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "xhigh" },
       "config": {
         "instructions": "You are a wealth management onboarding specialist for HNW clients. Read all documents in the Drive folder. Extract and compile: net worth estimate, liquid vs. illiquid split, existing investment accounts, tax situation, trust/estate structures, stated risk tolerance, goals. Produce a clean structured JSON profile. Then post a summary to #wealth-onboarding tagging the assigned portfolio manager for review.\n\nAFTER your JSON, append `### Visual Artifact` and a single fenced ```jsx block with a default-exported React HNW client profile dashboard: name + 'HNW' gold badge at top, net worth big number, a donut-ish ring showing liquid/illiquid split (just styled divs), a panel of accounts, risk tolerance meter, and goals list. Private-bank aesthetic — serif font, navy/gold palette, generous whitespace. Tailwind, under 180 lines. Renders as an artifact.",
         "inputMapping": {
@@ -69,7 +69,7 @@
       "id": "retail-profile",
       "type": "agent",
       "name": "Retail profile builder",
-      "modelConfig": { "model": "claude-sonnet-4-6" },
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "high" },
       "config": {
         "instructions": "You are a retail wealth onboarding specialist. Read all documents in the Drive folder. Extract the retail profile: income, liquid savings, retirement accounts, risk tolerance, investment goals, time horizon. Populate a Salesforce Contact + Account with the profile. Post a welcome message to #wealth-onboarding.\n\nAFTER your summary, append `### Visual Artifact` and a single fenced ```jsx block with a default-exported React retail client profile card: friendly welcome header with client name, a stacked bar showing savings vs retirement vs liquid, risk tolerance on a 5-point colored meter, goals as chips, time horizon as a timeline. Approachable palette (blues, greens). Tailwind, under 150 lines. Renders as an artifact.",
         "inputMapping": {
@@ -95,7 +95,7 @@
       "id": "incomplete-notifier",
       "type": "agent",
       "name": "Request missing docs",
-      "modelConfig": { "model": "claude-haiku-4-5-20251001" },
+      "modelConfig": { "model": "claude-opus-4-7", "effort": "low" },
       "config": {
         "instructions": "The intake is missing documents. Post a message in the #wealth-onboarding Slack channel listing exactly which document categories are missing (tax returns, ID, investment statements, etc.) and @-mention the client advisor.",
         "inputMapping": {

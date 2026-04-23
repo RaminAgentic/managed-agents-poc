@@ -95,7 +95,7 @@ Example agent node (a Slack + Salesforce deal-desk reviewer):
   "id": "review",
   "type": "agent",
   "name": "Deal desk reviewer",
-  "modelConfig": { "model": "claude-sonnet-4-6" },
+  "modelConfig": { "model": "claude-opus-4-7", "effort": "high" },
   "config": {
     "instructions": "You review deals against pricing policy. Read the opportunity, compare discount to our comps, then post a summary with approve/reject buttons to #deal-desk in Slack. Wait for a reaction, then write the decision back to the opportunity as a Chatter post.",
     "mcpServers": [

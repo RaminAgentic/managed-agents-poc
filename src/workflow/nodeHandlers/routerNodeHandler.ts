@@ -16,7 +16,7 @@ import type {
 } from "../types";
 import { resolveInputMapping, substituteTemplate } from "../resolveInputMapping";
 
-const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MODEL = "claude-opus-4-7";
 
 export async function runRouterNode(
   node: WorkflowNode,

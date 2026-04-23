@@ -11,7 +11,7 @@ import { anthropic } from "../config/anthropic";
  * agent/environment resources.
  */
 
-const MODEL = "claude-sonnet-4-5";
+const MODEL = "claude-opus-4-7";
 
 // --- Cached resource IDs (created lazily on first call) ---
 let weatherAgentId: string | null = null;

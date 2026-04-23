@@ -31,6 +31,7 @@ import { findOrCreateAgent } from "../agentRegistry";
 import { getEnvironmentId } from "../../agent/managedAgentSetup";
 
 const DEFAULT_TIMEOUT_SECONDS = 300;
+const DEFAULT_MODEL = "claude-opus-4-7";
 
 export async function runAgentNode(
   node: WorkflowNode,
