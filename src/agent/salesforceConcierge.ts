@@ -95,6 +95,43 @@ interface ConciergeState {
 const conciergeSessions = new Map<string, ConciergeState>();
 const MAX_SESSIONS_RETAINED = 100;
 
+// Cached managed agent — the concierge config is static, so we create it
+// once per process and reuse it across all calls. Saves 1-3 seconds per
+// invocation vs. creating a fresh agent every time.
+let cachedAgentId: string | null = null;
+let agentPromise: Promise<string> | null = null;
+
+async function getOrCreateConciergeAgent(): Promise<string> {
+  if (cachedAgentId) return cachedAgentId;
+  if (agentPromise) return agentPromise;
+
+  const tools: Anthropic.Beta.Agents.AgentCreateParams["tools"] = [
+    { type: "agent_toolset_20260401" },
+    ...(SF_TOOL_DEFINITIONS as unknown as NonNullable<
+      Anthropic.Beta.Agents.AgentCreateParams["tools"]
+    >),
+  ];
+
+  agentPromise = (async () => {
+    const agent = await anthropic.beta.agents.create({
+      name: "Salesforce concierge",
+      model: MODEL,
+      system: SYSTEM_PROMPT,
+      tools,
+    });
+    cachedAgentId = agent.id;
+    console.log(`[concierge] cached agent ${agent.id}`);
+    return agent.id;
+  })();
+
+  try {
+    return await agentPromise;
+  } catch (err) {
+    agentPromise = null;
+    throw err;
+  }
+}
+
 function rememberState(state: ConciergeState): void {
   conciergeSessions.set(state.sessionId, state);
   // Simple LRU-ish cap
@@ -118,23 +155,13 @@ export function getConciergeStatus(
 export async function startSalesforceConciergeAsync(
   call: ConciergeCall
 ): Promise<{ sessionId: string; agentId: string }> {
-  const tools: Anthropic.Beta.Agents.AgentCreateParams["tools"] = [
-    { type: "agent_toolset_20260401" },
-    ...(SF_TOOL_DEFINITIONS as unknown as NonNullable<
-      Anthropic.Beta.Agents.AgentCreateParams["tools"]
-    >),
-  ];
+  const [agentId, environmentId] = await Promise.all([
+    getOrCreateConciergeAgent(),
+    getEnvironmentId(),
+  ]);
 
-  const agent = await anthropic.beta.agents.create({
-    name: "Salesforce concierge",
-    model: MODEL,
-    system: SYSTEM_PROMPT,
-    tools,
-  });
-
-  const environmentId = await getEnvironmentId();
   const session = await anthropic.beta.sessions.create({
-    agent: agent.id,
+    agent: agentId,
     environment_id: environmentId,
     title: `Concierge: ${call.request.slice(0, 80)}`,
   });
@@ -145,13 +172,13 @@ export async function startSalesforceConciergeAsync(
     text: "",
     toolCalls: [],
     sessionId: session.id,
-    agentId: agent.id,
+    agentId,
     startedAt: new Date().toISOString(),
   };
   rememberState(state);
 
   console.log(
-    `[concierge] async session=${session.id} agent=${agent.id} request="${call.request.slice(0, 120)}"`
+    `[concierge] async session=${session.id} agent=${agentId} request="${call.request.slice(0, 120)}"`
   );
 
   // Fire-and-forget — stream events into `state` in the background

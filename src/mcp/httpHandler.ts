@@ -175,7 +175,7 @@ async function handleSalesforceConcierge(
     // If we hit the cap, return a short hand-off message + sessionId so
     // Cowork can call concierge_status to finish up.
     const DEADLINE_MS = 45_000;
-    const POLL_INTERVAL_MS = 1_500;
+    const POLL_INTERVAL_MS = 500;
     const deadline = Date.now() + DEADLINE_MS;
 
     while (Date.now() < deadline) {
