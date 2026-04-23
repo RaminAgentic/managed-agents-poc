@@ -24,6 +24,68 @@ import {
   SF_TOOL_NAMES,
   dispatchSalesforceTool,
 } from "../tools/salesforce";
+import prisma from "../db/client";
+import {
+  createWorkflowRun,
+  createRunStep,
+  completeRunStep,
+  failRunStep,
+  updateRunStatus,
+  logEvent,
+  setStepAgentSession,
+} from "../workflow/persistence";
+
+const CONCIERGE_WORKFLOW_ID = "wf-concierge";
+const CONCIERGE_WORKFLOW_NAME = "Salesforce Concierge";
+const CONCIERGE_NODE_ID = "concierge";
+
+/**
+ * Ensure the synthetic "Salesforce Concierge" workflow row exists so every
+ * concierge call can be tracked as a WorkflowRun visible in the Run
+ * History UI. Idempotent — safe to call on every invocation.
+ */
+let conciergeWorkflowPromise: Promise<void> | null = null;
+async function ensureConciergeWorkflow(): Promise<void> {
+  if (conciergeWorkflowPromise) return conciergeWorkflowPromise;
+  conciergeWorkflowPromise = (async () => {
+    const existing = await prisma.workflow.findUnique({
+      where: { id: CONCIERGE_WORKFLOW_ID },
+    });
+    if (existing) return;
+    const schema = {
+      id: CONCIERGE_WORKFLOW_ID,
+      name: CONCIERGE_WORKFLOW_NAME,
+      version: "1.0",
+      entryNodeId: CONCIERGE_NODE_ID,
+      nodes: [
+        {
+          id: CONCIERGE_NODE_ID,
+          type: "agent",
+          name: "Salesforce concierge",
+          config: { instructions: "(synthetic — see salesforceConcierge.ts)" },
+        },
+        {
+          id: "finalize",
+          type: "finalize",
+          name: "Finalize",
+          config: {},
+        },
+      ],
+      edges: [
+        { id: "e1", source: CONCIERGE_NODE_ID, target: "finalize" },
+      ],
+    };
+    await prisma.workflow.create({
+      data: {
+        id: CONCIERGE_WORKFLOW_ID,
+        name: CONCIERGE_WORKFLOW_NAME,
+        schemaJson: JSON.stringify(schema),
+      },
+    });
+    console.log("[concierge] created synthetic wf-concierge workflow row");
+  })();
+  return conciergeWorkflowPromise;
+}
 
 const MODEL = "claude-opus-4-7";
 // Opus 4.7 does not support speed=fast (only Sonnet / Haiku do).
@@ -86,6 +148,8 @@ interface ConciergeState {
   toolCalls: string[]; // human-readable trail of tools invoked
   sessionId: string;
   agentId: string;
+  runId: string;   // WorkflowRun row id — visible in Run History
+  stepId: string;  // RunStep row id for the single concierge step
   startedAt: string;
   completedAt?: string;
   error?: string;
@@ -159,7 +223,9 @@ export function getConciergeStatus(
  */
 export async function startSalesforceConciergeAsync(
   call: ConciergeCall
-): Promise<{ sessionId: string; agentId: string }> {
+): Promise<{ sessionId: string; agentId: string; runId: string }> {
+  await ensureConciergeWorkflow();
+
   const [agentId, environmentId] = await Promise.all([
     getOrCreateConciergeAgent(),
     getEnvironmentId(),
@@ -171,6 +237,27 @@ export async function startSalesforceConciergeAsync(
     title: `Concierge: ${call.request.slice(0, 80)}`,
   });
 
+  // Track as a WorkflowRun so it shows up in Run History alongside
+  // everything else the user has kicked off through the app.
+  const runId = await createWorkflowRun(CONCIERGE_WORKFLOW_ID, {
+    request: call.request,
+    sessionId: session.id,
+    anthropicAgentId: agentId,
+  });
+  await updateRunStatus(runId, "running");
+  await logEvent(runId, null, "workflow_started", {
+    workflowId: CONCIERGE_WORKFLOW_ID,
+    workflowName: CONCIERGE_WORKFLOW_NAME,
+    request: call.request,
+  });
+  const stepId = await createRunStep(runId, CONCIERGE_NODE_ID);
+  await setStepAgentSession(stepId, session.id);
+  await logEvent(runId, stepId, "step_started", {
+    nodeId: CONCIERGE_NODE_ID,
+    nodeType: "agent",
+    nodeName: "Salesforce concierge",
+  });
+
   const state: ConciergeState = {
     request: call.request,
     status: "running",
@@ -178,23 +265,35 @@ export async function startSalesforceConciergeAsync(
     toolCalls: [],
     sessionId: session.id,
     agentId,
+    runId,
+    stepId,
     startedAt: new Date().toISOString(),
   };
   rememberState(state);
 
   console.log(
-    `[concierge] async session=${session.id} agent=${agentId} request="${call.request.slice(0, 120)}"`
+    `[concierge] async run=${runId} session=${session.id} agent=${agentId} request="${call.request.slice(0, 120)}"`
   );
 
   // Fire-and-forget — stream events into `state` in the background
-  streamConciergeSession(state, call.request).catch((err) => {
+  streamConciergeSession(state, call.request).catch(async (err) => {
     state.status = "failed";
     state.error = err instanceof Error ? err.message : String(err);
     state.completedAt = new Date().toISOString();
     console.error(`[concierge] session ${session.id} failed:`, err);
+    try {
+      await failRunStep(state.stepId, err);
+      await updateRunStatus(state.runId, "failed");
+      await logEvent(state.runId, state.stepId, "step_failed", {
+        nodeId: CONCIERGE_NODE_ID,
+        error: state.error,
+      });
+    } catch (persistErr) {
+      console.error("[concierge] failed to persist failure:", persistErr);
+    }
   });
 
-  return { sessionId: session.id, agentId };
+  return { sessionId: session.id, agentId, runId };
 }
 
 async function streamConciergeSession(
@@ -234,6 +333,10 @@ async function streamConciergeSession(
           name: e.name,
           input: (e.input ?? {}) as Record<string, unknown>,
         });
+        // Best-effort event log — no DB failure aborts the session
+        logEvent(state.runId, state.stepId, "step_started", {
+          tool: e.name,
+        }).catch(() => {});
         break;
 
       case "session.status_idle": {
@@ -241,12 +344,30 @@ async function streamConciergeSession(
         if (reason === "end_turn") {
           state.status = "completed";
           state.completedAt = new Date().toISOString();
+          try {
+            await completeRunStep(state.stepId, {
+              text: state.text,
+              toolCalls: state.toolCalls,
+            });
+            await updateRunStatus(state.runId, "completed");
+            await logEvent(state.runId, state.stepId, "workflow_completed", {
+              toolCalls: state.toolCalls,
+            });
+          } catch (err) {
+            console.error("[concierge] failed to persist completion:", err);
+          }
           return;
         }
         if (reason === "retries_exhausted") {
           state.status = "failed";
           state.error = "Session exhausted retries";
           state.completedAt = new Date().toISOString();
+          try {
+            await failRunStep(state.stepId, new Error(state.error));
+            await updateRunStatus(state.runId, "failed");
+          } catch (err) {
+            console.error("[concierge] failed to persist retry-exhausted:", err);
+          }
           return;
         }
         if (reason === "requires_action" && pendingToolCalls.length > 0) {
@@ -274,12 +395,25 @@ async function streamConciergeSession(
         state.status = "failed";
         state.error = e.error?.message ?? "session error";
         state.completedAt = new Date().toISOString();
+        try {
+          await failRunStep(state.stepId, new Error(state.error));
+          await updateRunStatus(state.runId, "failed");
+        } catch { /* best-effort */ }
         return;
 
       case "session.status_terminated":
         state.status = state.text ? "completed" : "failed";
         state.error = state.text ? undefined : "session terminated";
         state.completedAt = new Date().toISOString();
+        try {
+          if (state.status === "completed") {
+            await completeRunStep(state.stepId, { text: state.text });
+            await updateRunStatus(state.runId, "completed");
+          } else {
+            await failRunStep(state.stepId, new Error(state.error ?? "terminated"));
+            await updateRunStatus(state.runId, "failed");
+          }
+        } catch { /* best-effort */ }
         return;
 
       default:
@@ -291,6 +425,10 @@ async function streamConciergeSession(
   if (state.status === "running") {
     state.status = "completed";
     state.completedAt = new Date().toISOString();
+    try {
+      await completeRunStep(state.stepId, { text: state.text });
+      await updateRunStatus(state.runId, "completed");
+    } catch { /* best-effort */ }
   }
 }
 
