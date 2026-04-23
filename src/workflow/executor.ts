@@ -44,7 +44,9 @@ import {
   failRunStep,
   logEvent,
   updateRunStatus,
+  isRunCancelRequested,
 } from "./persistence";
+import { dispatchNotify } from "./notify";
 
 const MAX_STEPS = 100;
 
@@ -179,6 +181,17 @@ export async function executeWorkflow(
 
   try {
     while (true) {
+      // v2: honor cancellation requests between batches.
+      if (await isRunCancelRequested(runId)) {
+        await updateRunStatus(runId, "cancelled");
+        await logEvent(runId, null, "run_cancelled", {
+          executedBeforeCancel: totalExecuted,
+        });
+        await dispatchNotify(runId, workflowSchema, "cancelled").catch(() => {});
+        console.log(`[executor] Run ${runId} cancelled by user request.`);
+        return;
+      }
+
       const ready = collectReady(state, workflowSchema);
       if (ready.length === 0) break;
 
@@ -212,7 +225,12 @@ export async function executeWorkflow(
           });
           try {
             const handler = getNodeHandler(node.type);
-            const result = await handler(node, ctx, { runId, stepId });
+            const result = await runWithRetry(
+              runId,
+              stepId,
+              node,
+              () => handler(node, ctx, { runId, stepId })
+            );
             ctx.steps[node.id] = result;
             await completeRunStep(stepId, result.outputs);
             await logEvent(runId, stepId, "step_completed", {
@@ -284,6 +302,9 @@ export async function executeWorkflow(
 
     if (finalizeSeen) {
       console.log(`[executor] Workflow run ${runId} completed successfully.`);
+      await dispatchNotify(runId, workflowSchema, "completed").catch((e) =>
+        console.warn("[executor] notify dispatch failed:", e)
+      );
       return;
     }
 
@@ -291,6 +312,9 @@ export async function executeWorkflow(
     await logEvent(runId, null, "workflow_completed", {
       note: "Ended without explicit finalize node",
     });
+    await dispatchNotify(runId, workflowSchema, "completed").catch((e) =>
+      console.warn("[executor] notify dispatch failed:", e)
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack ?? "" : "";
@@ -303,6 +327,9 @@ export async function executeWorkflow(
     } catch (persistError) {
       console.error("[executor] Failed to persist run failure:", persistError);
     }
+    await dispatchNotify(runId, workflowSchema, "failed").catch((e) =>
+      console.warn("[executor] notify dispatch failed:", e)
+    );
   }
 }
 
@@ -332,6 +359,69 @@ function resolveChosenEdgeIds(
   }
 
   return null;
+}
+
+/**
+ * Retry wrapper (v2).
+ *
+ * Wraps a node handler invocation in a retry loop per `node.retry`.
+ * Defaults: maxAttempts=1 (no retry), initialDelayMs=1000, backoff=2.
+ * If `retryOn` is set, only the listed failure kinds trigger a retry;
+ * the kind is inferred from the Error.message string.
+ */
+async function runWithRetry(
+  runId: string,
+  stepId: string,
+  node: WorkflowNode,
+  invoke: () => Promise<StepResult>
+): Promise<StepResult> {
+  const policy = node.retry ?? {};
+  const maxAttempts = Math.max(1, policy.maxAttempts ?? 1);
+  const initialDelay = Math.max(0, policy.initialDelayMs ?? 1000);
+  const backoff = policy.backoffMultiplier ?? 2;
+  const filter = policy.retryOn;
+
+  let attempt = 0;
+  let lastErr: unknown;
+  while (attempt < maxAttempts) {
+    attempt++;
+    try {
+      return await invoke();
+    } catch (err) {
+      lastErr = err;
+      const kind = classifyError(err);
+      const shouldRetry =
+        attempt < maxAttempts && (!filter || filter.includes(kind));
+      if (!shouldRetry) break;
+
+      const delay = Math.floor(initialDelay * Math.pow(backoff, attempt - 1));
+      await logEvent(runId, stepId, "step_retry", {
+        nodeId: node.id,
+        attempt,
+        maxAttempts,
+        nextDelayMs: delay,
+        kind,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      console.warn(
+        `[executor] Retry ${attempt}/${maxAttempts - 1} for node ${node.id} in ${delay}ms (kind=${kind})`
+      );
+      await sleep(delay);
+    }
+  }
+  throw lastErr;
+}
+
+function classifyError(err: unknown): "timeout" | "tool_error" | "rate_limit" | "http_5xx" {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/timeout|timed out|ETIMEDOUT/i.test(msg)) return "timeout";
+  if (/rate.?limit|429/i.test(msg)) return "rate_limit";
+  if (/\bhttp 5\d\d\b|\b5\d\d\b/i.test(msg)) return "http_5xx";
+  return "tool_error";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Suppress unused import warning for killEdge (exposed for future use).

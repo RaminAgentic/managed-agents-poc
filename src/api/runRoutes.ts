@@ -19,6 +19,7 @@ import {
   getRunSteps,
   getRunEvents,
   updateRunStatus,
+  requestRunCancel,
 } from "../workflow/persistence";
 
 const router = Router();
@@ -153,6 +154,37 @@ router.get("/runs/:id/steps", async (req: Request, res: Response) => {
     res.json({ steps, events });
   } catch (err: unknown) {
     console.error("[runRoutes] GET /runs/:id/steps error:", err);
+    res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
+  }
+});
+
+/**
+ * POST /api/runs/:id/cancel
+ *
+ * Flags a run for cancellation. The executor checks the flag between
+ * steps and transitions to `cancelled` at the next check point. Does
+ * not interrupt a step that's already in flight — that would require
+ * session-level cancellation which Anthropic doesn't expose.
+ */
+router.post("/runs/:id/cancel", async (req: Request, res: Response) => {
+  try {
+    const run = await getWorkflowRun(req.params.id);
+    if (!run) {
+      res.status(404).json({ error: "Run not found" });
+      return;
+    }
+    const terminal = ["completed", "failed", "cancelled"];
+    if (terminal.includes(run.status)) {
+      res.status(409).json({
+        error: `Run is already ${run.status}`,
+        status: run.status,
+      });
+      return;
+    }
+    await requestRunCancel(req.params.id);
+    res.json({ runId: req.params.id, status: "cancel_requested" });
+  } catch (err: unknown) {
+    console.error("[runRoutes] POST /runs/:id/cancel error:", err);
     res.status(500).json({ error: err instanceof Error ? err.message : "Unknown error" });
   }
 });
