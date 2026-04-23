@@ -30,8 +30,30 @@ export default function AgentOutputView({ step, nodeType }: AgentOutputViewProps
 
   if (step.status === "failed") {
     return (
-      <Alert severity="error" variant="outlined">
+      <Alert
+        severity="error"
+        variant="outlined"
+        sx={{
+          "& .MuiAlert-message": {
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontFamily: "monospace",
+            fontSize: "0.8rem",
+            overflow: "auto",
+            maxHeight: 400,
+            width: "100%",
+          },
+        }}
+      >
         {step.error_message ?? "Unknown error"}
+        {step.error_stack && (
+          <Box
+            component="pre"
+            sx={{ mt: 1, fontSize: "0.7rem", opacity: 0.75, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+          >
+            {step.error_stack}
+          </Box>
+        )}
       </Alert>
     );
   }

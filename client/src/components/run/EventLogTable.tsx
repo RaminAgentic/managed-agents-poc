@@ -12,13 +12,12 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString();
 }
 
-function summarizePayload(raw: string): string {
+function prettyPayload(raw: string): string {
   try {
     const obj = JSON.parse(raw);
-    const str = JSON.stringify(obj);
-    return str.length > 80 ? str.slice(0, 77) + "…" : str;
+    return JSON.stringify(obj, null, 2);
   } catch {
-    return raw.length > 80 ? raw.slice(0, 77) + "…" : raw;
+    return raw;
   }
 }
 
@@ -76,13 +75,14 @@ export default function EventLogTable({ events }: EventLogTableProps) {
                   fontFamily: "monospace",
                   fontSize: "0.7rem",
                   color: "text.secondary",
-                  maxWidth: 400,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  verticalAlign: "top",
+                  p: 1,
+                  m: 0,
                 }}
               >
-                {summarizePayload(evt.payload)}
+                {prettyPayload(evt.payload)}
               </TableCell>
             </TableRow>
           ))}

@@ -24,6 +24,7 @@ import workflowRoutes from "./api/workflowRoutes";
 import runRoutes from "./api/runRoutes";
 import slackRoutes from "./api/slackRoutes";
 import approvalRoutes from "./api/approvalRoutes";
+import diagRoutes from "./api/diagRoutes";
 import { mcpHttpHandler } from "./mcp/httpHandler";
 
 // In dev, Vite serves the frontend on 5002 and proxies /api to 5001.
@@ -74,6 +75,9 @@ app.use("/api", slackRoutes);
 
 // Human-gate approval endpoints (GET/POST /approval/:stepId)
 app.use("/api", approvalRoutes);
+
+// Diagnostic smoke tests (GET /diag/salesforce, ...)
+app.use("/api", diagRoutes);
 
 /**
  * POST /api/chat
