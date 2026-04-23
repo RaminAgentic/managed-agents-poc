@@ -92,6 +92,13 @@ export interface AgentNodeConfig {
    * against a jsforce-backed Connection.
    */
   includeSalesforceTools?: boolean;
+  /**
+   * Shorthand: when true, the FLOW_BUILDER_TOOL_DEFINITIONS
+   * (save_workflow, list_existing_workflows) are appended to the tools
+   * list. Use this for the meta flow-builder agent so it can create and
+   * publish new workflows into our DB.
+   */
+  includeFlowBuilderTools?: boolean;
 }
 
 /** Deterministic conditional node. Evaluates `expression` against the run

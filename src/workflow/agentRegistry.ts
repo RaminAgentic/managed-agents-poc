@@ -1,24 +1,28 @@
 /**
- * Agent Registry — versioned, append-only tracking of managed-agent
- * configurations per (workflow, node) pair.
+ * Agent Registry — one Anthropic agent per (workflow, node), with
+ * our DB holding the config history for audit and revival.
  *
- * Whenever a workflow agent node is about to execute, the registry
- * resolves (or creates) the corresponding `Agent` DB row and its
- * associated Anthropic managed-agent resource.
+ * Design:
+ * - Anthropic side: ONE agent per (workflowId, nodeId). Its system/tools/
+ *   model are updated in place via `beta.agents.update` as the config
+ *   evolves. Anthropic natively versions these updates.
+ * - Our side: one `Agent` row per distinct config ever seen for that node.
+ *   All rows for the same (workflowId, nodeId) share the same
+ *   `anthropicAgentId`. `supersededAt IS NULL` flags the config that's
+ *   currently applied on Anthropic.
  *
- * Key behaviors:
- * - Dedupe by config hash: identical configs for the same node reuse
- *   the same Anthropic agent (no matter how many times it's edited
- *   and reverted).
- * - Monotonic versions: each *distinct* config seen for a node gets
- *   the next version number. Old rows are kept forever.
- * - Single active version: at most one `Agent` row per (workflow, node)
- *   has `supersededAt = NULL` at any given time.
+ * Consequences:
+ * - The Anthropic console shows one agent per node — not a per-run pile.
+ * - Reviving a past config = re-apply that row's `configJson` via
+ *   `beta.agents.update` (the id doesn't change).
+ * - Old runs still reference their original Agent row in `RunStep`, so
+ *   the exact config used at run-time is recoverable even though the
+ *   live Anthropic agent has moved on.
  *
- * The hash only covers fields that change the Anthropic agent's
- * identity (instructions, model, mcp_servers, tools, skills). Fields
- * like inputMapping, timeoutSeconds, outputFormat are execution-time
- * concerns and don't warrant new agent versions.
+ * The identity hash covers only fields that change what the Anthropic
+ * agent DOES (instructions, model, mcp_servers, tools, skills). Execution-
+ * time fields (inputMapping, timeoutSeconds, outputFormat) don't produce
+ * new versions.
  */
 import crypto from "crypto";
 import type Anthropic from "@anthropic-ai/sdk";
@@ -26,16 +30,17 @@ import prisma from "../db/client";
 import { anthropic } from "../config/anthropic";
 import type { AgentNodeConfig, ModelConfig, AgentTool } from "./types";
 import { SF_TOOL_DEFINITIONS } from "../tools/salesforce";
+import { FLOW_BUILDER_TOOL_DEFINITIONS } from "../tools/flowBuilder";
 
-/**
- * Expand shorthand flags (e.g. includeSalesforceTools) into full
- * tool definitions. Called at registration time so the resulting
- * config is exactly what Anthropic receives.
- */
 function expandTools(config: AgentNodeConfig): AgentTool[] | undefined {
   const base = (config.tools ?? []).slice();
   if (config.includeSalesforceTools) {
     for (const t of SF_TOOL_DEFINITIONS) {
+      base.push(t as unknown as AgentTool);
+    }
+  }
+  if (config.includeFlowBuilderTools) {
+    for (const t of FLOW_BUILDER_TOOL_DEFINITIONS) {
       base.push(t as unknown as AgentTool);
     }
   }
@@ -44,10 +49,6 @@ function expandTools(config: AgentNodeConfig): AgentTool[] | undefined {
 
 const DEFAULT_MODEL = "claude-opus-4-7";
 
-/**
- * The subset of config fields that define an Anthropic agent's identity.
- * Two nodes with the same identity config share one Anthropic agent.
- */
 interface AgentIdentity {
   instructions: string;
   model?: string;
@@ -113,11 +114,8 @@ export interface ResolvedAgent {
 }
 
 /**
- * Resolve the active `Agent` row for a workflow node, creating a new
- * version (and a new Anthropic agent) if the config has changed.
- *
- * Race-safe: if a parallel call inserts first, the retry path finds
- * the existing row and reuses it.
+ * Resolve the Agent row for a workflow node. Creates the Anthropic agent
+ * on first touch; for subsequent configs, updates the same agent in place.
  */
 export async function findOrCreateAgent(params: {
   workflowId: string;
@@ -129,6 +127,7 @@ export async function findOrCreateAgent(params: {
   const { workflowId, nodeId, nodeName, config, modelConfig } = params;
   const identity = buildIdentity(config, modelConfig);
   const configHash = hashIdentity(identity);
+  const agentName = `${nodeName} (${nodeId})`.slice(0, 100);
 
   const existing = await prisma.agent.findUnique({
     where: {
@@ -137,41 +136,51 @@ export async function findOrCreateAgent(params: {
   });
 
   if (existing) {
-    if (existing.supersededAt) {
-      await prisma.$transaction([
-        prisma.agent.updateMany({
-          where: { workflowId, nodeId, supersededAt: null },
-          data: { supersededAt: new Date() },
-        }),
-        prisma.agent.update({
-          where: { id: existing.id },
-          data: { supersededAt: null },
-        }),
-      ]);
+    if (!existing.supersededAt) {
+      return toResolved(existing);
     }
-    return {
-      id: existing.id,
-      anthropicAgentId: existing.anthropicAgentId,
-      version: existing.version,
-    };
+    // Reviving a past config — re-apply it to the shared Anthropic agent
+    // and flip supersededAt on our side.
+    await applyIdentity(existing.anthropicAgentId, agentName, identity);
+    await prisma.$transaction([
+      prisma.agent.updateMany({
+        where: { workflowId, nodeId, supersededAt: null },
+        data: { supersededAt: new Date() },
+      }),
+      prisma.agent.update({
+        where: { id: existing.id },
+        data: { supersededAt: null },
+      }),
+    ]);
+    return toResolved(existing);
   }
 
-  const anthropicAgent = await createAnthropicAgent({
-    name: `${nodeName} (${nodeId})`.slice(0, 100),
-    model: modelConfig?.model ?? DEFAULT_MODEL,
-    speed: modelConfig?.speed,
-    instructions: config.instructions,
-    mcpServers: config.mcpServers,
-    tools: expandTools(config),
-    skills: config.skills,
-  });
-
-  const latest = await prisma.agent.findFirst({
+  // New config. Pick (or create) the canonical Anthropic agent for this
+  // node and update it in place.
+  const nodeRows = await prisma.agent.findMany({
     where: { workflowId, nodeId },
     orderBy: { version: "desc" },
-    select: { version: true },
+    select: {
+      id: true,
+      version: true,
+      anthropicAgentId: true,
+      supersededAt: true,
+    },
   });
-  const nextVersion = (latest?.version ?? 0) + 1;
+
+  let anthropicAgentId: string;
+  if (nodeRows.length === 0) {
+    // First-ever row for this node — create the Anthropic agent.
+    const created = await createAnthropicAgent(agentName, identity);
+    anthropicAgentId = created.id;
+  } else {
+    // Reuse the active row's id (or the latest, if nothing active).
+    const active = nodeRows.find((r) => r.supersededAt === null);
+    anthropicAgentId = (active ?? nodeRows[0]).anthropicAgentId;
+    await applyIdentity(anthropicAgentId, agentName, identity);
+  }
+
+  const nextVersion = (nodeRows[0]?.version ?? 0) + 1;
 
   try {
     const [, inserted] = await prisma.$transaction([
@@ -186,15 +195,11 @@ export async function findOrCreateAgent(params: {
           version: nextVersion,
           configHash,
           configJson: JSON.stringify(identity),
-          anthropicAgentId: anthropicAgent.id,
+          anthropicAgentId,
         },
       }),
     ]);
-    return {
-      id: inserted.id,
-      anthropicAgentId: inserted.anthropicAgentId,
-      version: inserted.version,
-    };
+    return toResolved(inserted);
   } catch (err: unknown) {
     // Race: another caller inserted the same configHash first. Refetch.
     const raced = await prisma.agent.findUnique({
@@ -203,47 +208,94 @@ export async function findOrCreateAgent(params: {
       },
     });
     if (raced) {
-      return {
-        id: raced.id,
-        anthropicAgentId: raced.anthropicAgentId,
-        version: raced.version,
-      };
+      return toResolved(raced);
     }
     throw err;
   }
 }
 
-async function createAnthropicAgent(params: {
-  name: string;
-  model: string;
-  speed?: "standard" | "fast";
-  instructions: string;
-  mcpServers?: AgentNodeConfig["mcpServers"];
-  tools?: AgentNodeConfig["tools"];
-  skills?: AgentNodeConfig["skills"];
-}): Promise<{ id: string }> {
-  const modelField: Anthropic.Beta.Agents.AgentCreateParams["model"] =
-    params.speed
-      ? ({ id: params.model, speed: params.speed } as unknown as Anthropic.Beta.Agents.AgentCreateParams["model"])
-      : (params.model as Anthropic.Beta.Agents.AgentCreateParams["model"]);
-
-  const body: Anthropic.Beta.Agents.AgentCreateParams = {
-    name: params.name,
-    model: modelField,
-    system: params.instructions,
+function toResolved(row: {
+  id: string;
+  anthropicAgentId: string;
+  version: number;
+}): ResolvedAgent {
+  return {
+    id: row.id,
+    anthropicAgentId: row.anthropicAgentId,
+    version: row.version,
   };
-  if (params.tools && params.tools.length > 0) {
-    body.tools = params.tools as Anthropic.Beta.Agents.AgentCreateParams["tools"];
+}
+
+function buildModelField(
+  model: string,
+  speed?: "standard" | "fast"
+): Anthropic.Beta.Agents.AgentCreateParams["model"] {
+  return speed
+    ? ({ id: model, speed } as unknown as Anthropic.Beta.Agents.AgentCreateParams["model"])
+    : (model as Anthropic.Beta.Agents.AgentCreateParams["model"]);
+}
+
+async function createAnthropicAgent(
+  name: string,
+  identity: AgentIdentity
+): Promise<{ id: string }> {
+  const body: Anthropic.Beta.Agents.AgentCreateParams = {
+    name,
+    model: buildModelField(identity.model ?? DEFAULT_MODEL, identity.speed),
+    system: identity.instructions,
+  };
+  if (identity.tools && identity.tools.length > 0) {
+    body.tools = identity.tools as Anthropic.Beta.Agents.AgentCreateParams["tools"];
   }
-  if (params.mcpServers && params.mcpServers.length > 0) {
-    body.mcp_servers = params.mcpServers;
+  if (identity.mcpServers && identity.mcpServers.length > 0) {
+    body.mcp_servers = identity.mcpServers;
   }
-  if (params.skills && params.skills.length > 0) {
-    body.skills = params.skills as Anthropic.Beta.Agents.AgentCreateParams["skills"];
+  if (identity.skills && identity.skills.length > 0) {
+    body.skills = identity.skills as Anthropic.Beta.Agents.AgentCreateParams["skills"];
   }
   console.log(
-    `[agentRegistry] creating Anthropic agent "${params.name}" — model=${params.model}${params.speed ? ` (speed=${params.speed})` : ""}, mcp=${params.mcpServers?.length ?? 0}, tools=${params.tools?.length ?? 0}, skills=${params.skills?.length ?? 0}`
+    `[agentRegistry] creating Anthropic agent "${name}" — model=${identity.model ?? DEFAULT_MODEL}, mcp=${identity.mcpServers?.length ?? 0}, tools=${identity.tools?.length ?? 0}, skills=${identity.skills?.length ?? 0}`
   );
   const agent = await anthropic.beta.agents.create(body);
   return { id: agent.id };
+}
+
+/**
+ * Push an identity onto an existing Anthropic agent via update. Retrieves
+ * the current version for optimistic-locking, retries once on version
+ * mismatch (another update landed between retrieve and update).
+ */
+async function applyIdentity(
+  agentId: string,
+  name: string,
+  identity: AgentIdentity
+): Promise<void> {
+  const doUpdate = async (): Promise<void> => {
+    const current = await anthropic.beta.agents.retrieve(agentId);
+    const body: Anthropic.Beta.Agents.AgentUpdateParams = {
+      version: current.version,
+      name,
+      model: buildModelField(
+        identity.model ?? DEFAULT_MODEL,
+        identity.speed
+      ) as Anthropic.Beta.Agents.AgentUpdateParams["model"],
+      system: identity.instructions,
+      tools: (identity.tools ?? []) as Anthropic.Beta.Agents.AgentUpdateParams["tools"],
+      mcp_servers: (identity.mcpServers ?? []) as Anthropic.Beta.Agents.AgentUpdateParams["mcp_servers"],
+      skills: (identity.skills ?? []) as Anthropic.Beta.Agents.AgentUpdateParams["skills"],
+    };
+    await anthropic.beta.agents.update(agentId, body);
+  };
+
+  try {
+    await doUpdate();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/version/i.test(msg)) {
+      await doUpdate();
+      return;
+    }
+    throw err;
+  }
+  console.log(`[agentRegistry] updated Anthropic agent ${agentId} ("${name}")`);
 }

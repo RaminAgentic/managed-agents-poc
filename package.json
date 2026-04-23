@@ -18,6 +18,7 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "seed:demos": "ts-node --transpile-only src/scripts/seedDemoWorkflows.ts",
+    "reconcile:agents": "ts-node --transpile-only src/scripts/reconcileAgents.ts",
     "postinstall": "prisma generate"
   },
   "keywords": [],

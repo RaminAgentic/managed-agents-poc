@@ -1,94 +1,116 @@
-import Anthropic from "@anthropic-ai/sdk";
-import { anthropic } from "../config/anthropic";
-import { runAgent } from "./runAgent";
-import { runResearchAgent } from "./researchAgent";
-
-const MODEL = "claude-opus-4-7";
-
 /**
- * System prompt for the intent classifier.
- * Forces the model to respond with a single routing label.
+ * Chat orchestrator → Flow Builder.
  *
- * Note: The classifier intentionally uses the lightweight messages.create
- * API — it's a single-shot, no-tool call that doesn't benefit from a
- * managed agent session.
+ * The Chat tab is a natural-language entrypoint for creating new
+ * workflows. It delegates every prompt to the `wf-flow-builder`
+ * workflow, which generates + publishes a real WorkflowSchema into
+ * the DB (immediately visible via MCP and the flow editor).
+ *
+ * Runs go through the standard executor — full Run History audit
+ * trail, same governance as any other flow.
  */
-const CLASSIFIER_SYSTEM =
-  "Classify the user's request into exactly one category. " +
-  "Respond with ONLY one word, no punctuation, no explanation:\n" +
-  "- weather: questions about current weather, temperature, forecast\n" +
-  "- research: factual questions, explanations, summaries, 'tell me about', 'explain'\n" +
-  "- other: anything else";
+import prisma from "../db/client";
+import type { WorkflowSchema } from "../workflow/types";
+import { validateWorkflowSchema } from "../workflow/schemaValidator";
+import { executeWorkflow } from "../workflow/executor";
+import { createWorkflowRun, updateRunStatus } from "../workflow/persistence";
 
-/** Routing label returned by the classifier. */
+const FLOW_BUILDER_WORKFLOW_ID = "wf-flow-builder";
+const POLL_INTERVAL_MS = 2_000;
+const MAX_WAIT_MS = 240_000; // 4 min cap — flow builder typically finishes in < 60s
+
+/** Routing label returned to the Chat UI. Kept for backward compat. */
 export type AgentType = "weather" | "research" | "other";
 
-/** Structured result from the orchestrator. */
 export interface OrchestratorResult {
   response: string;
   agentType: AgentType;
+  runId?: string;
 }
 
-/**
- * Orchestrator: Claude-to-Claude delegation pattern.
- *
- * 1. Classifies the user's intent via a single messages.create call (no tools).
- * 2. Logs the routing decision.
- * 3. Delegates to the appropriate managed agent session and returns its
- *    response wrapped in an OrchestratorResult (includes agentType for the
- *    web UI).
- *
- * Cost note: This adds one extra (cheap) classifier call per user prompt.
- * Acceptable for POC; production would cache or inline routing.
- */
 export async function runOrchestrator(
   userPrompt: string
 ): Promise<OrchestratorResult> {
   if (!userPrompt.trim()) {
-    throw new Error("Empty prompt — nothing to classify.");
+    throw new Error("Empty prompt — nothing to build.");
   }
 
-  // --- Step 1: Classify intent (lightweight, no managed session needed) ---
-  const classifierResponse = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: 10,
-    temperature: 0,
-    system: CLASSIFIER_SYSTEM,
-    messages: [{ role: "user", content: userPrompt }],
+  const workflow = await prisma.workflow.findUnique({
+    where: { id: FLOW_BUILDER_WORKFLOW_ID },
+  });
+  if (!workflow) {
+    throw new Error(
+      `Flow Builder workflow '${FLOW_BUILDER_WORKFLOW_ID}' not found. Run 'npm run seed:demos' to install it.`
+    );
+  }
+
+  const schema = JSON.parse(workflow.schemaJson) as WorkflowSchema;
+  const validation = validateWorkflowSchema(schema);
+  if (!validation.valid) {
+    throw new Error(
+      `Flow Builder schema invalid: ${validation.errors.join(", ")}`
+    );
+  }
+
+  const input = { description: userPrompt };
+  const runId = await createWorkflowRun(FLOW_BUILDER_WORKFLOW_ID, input);
+
+  executeWorkflow(runId, schema, input).catch(async (err) => {
+    console.error(`[orchestrator] flow-builder run ${runId} failed:`, err);
+    try {
+      await updateRunStatus(runId, "failed");
+    } catch (persistErr) {
+      console.error(`[orchestrator] failed to mark ${runId} failed:`, persistErr);
+    }
   });
 
-  const rawLabel = classifierResponse.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("")
-    .toLowerCase()
-    .trim();
-
-  // Forgiving parser: extract a known label even if the model is verbose
-  const label = (rawLabel.match(/weather|research/)?.[0] ?? "other") as AgentType;
-
-  // --- Step 2: Log routing decision ---
-  console.log(`\n━━━ Orchestrator: classified as "${label}" ━━━`);
   console.log(
-    `→ routing to managed agent session: ${
-      label === "weather" ? "weather-agent" : "research-agent"
-    }`
+    `[orchestrator] flow-builder run=${runId} prompt="${userPrompt.slice(0, 120)}"`
   );
 
-  // --- Step 3: Delegate to managed agent session ---
-  switch (label) {
-    case "weather":
-      return { response: await runAgent(userPrompt), agentType: "weather" };
-    case "research":
-      return {
-        response: await runResearchAgent(userPrompt),
-        agentType: "research",
-      };
-    default:
-      // Default to research agent — handles open-ended prompts gracefully
-      return {
-        response: await runResearchAgent(userPrompt),
-        agentType: "other",
-      };
+  const started = Date.now();
+  while (Date.now() - started < MAX_WAIT_MS) {
+    const run = await prisma.workflowRun.findUnique({
+      where: { id: runId },
+      include: { steps: { orderBy: { startedAt: "asc" } } },
+    });
+    if (!run) {
+      throw new Error(`Run ${runId} vanished`);
+    }
+
+    if (run.status === "completed" || run.status === "failed") {
+      const builderStep = run.steps.find((s) => s.nodeId === "builder");
+      let text = "";
+      if (builderStep?.outputJson) {
+        try {
+          const out = JSON.parse(builderStep.outputJson);
+          text = typeof out?.text === "string" ? out.text : JSON.stringify(out);
+        } catch {
+          text = builderStep.outputJson;
+        }
+      }
+      if (run.status === "failed") {
+        const msg = builderStep?.errorMessage ?? "Flow builder failed";
+        return {
+          response: text ? `${msg}\n\n${text}` : msg,
+          agentType: "other",
+          runId,
+        };
+      }
+      return { response: text, agentType: "other", runId };
+    }
+
+    await sleep(POLL_INTERVAL_MS);
   }
+
+  return {
+    response:
+      `Flow builder is still running. Run ID: ${runId}. Check Run History for the result.`,
+    agentType: "other",
+    runId,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -33,6 +33,10 @@ import {
   SF_TOOL_NAMES,
   dispatchSalesforceTool,
 } from "../../tools/salesforce";
+import {
+  FLOW_BUILDER_TOOL_NAMES,
+  dispatchFlowBuilderTool,
+} from "../../tools/flowBuilder";
 
 const DEFAULT_TIMEOUT_SECONDS = 300;
 const DEFAULT_MODEL = "claude-opus-4-7";
@@ -231,6 +235,8 @@ async function runSession(params: {
               let result: string;
               if (SF_TOOL_NAMES.has(tc.name)) {
                 result = await dispatchSalesforceTool(tc.name, tc.input);
+              } else if (FLOW_BUILDER_TOOL_NAMES.has(tc.name)) {
+                result = await dispatchFlowBuilderTool(tc.name, tc.input);
               } else {
                 result = `Error: no handler registered for custom tool "${tc.name}"`;
               }
