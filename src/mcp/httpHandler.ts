@@ -24,6 +24,7 @@ import { updateRunStatus } from "../workflow/persistence";
 import type { WorkflowSchema } from "../workflow/types";
 import { renderRunAsReactArtifact } from "../workflow/renderRunArtifact";
 import { renderWorkflowMermaid } from "../workflow/renderMermaid";
+import { runSalesforceConcierge } from "../agent/salesforceConcierge";
 
 // ── Tool Schemas ───────────────────────────────────────────────────────
 // Replicated from mcp/src/tools/*.ts — KEEP IN SYNC
@@ -53,6 +54,15 @@ const getRunStatusSchema = z.object({
 });
 
 const listRunsSchema = z.object({});
+
+const salesforceConciergeSchema = z.object({
+  request: z
+    .string()
+    .min(1)
+    .describe(
+      "Describe what you want done with Salesforce, in plain English. Examples: 'I just met with Acme Toys, log a ~$200k enterprise opp for Q3', 'how's our pipeline this quarter', 'who are the slipping deals over $100k'. The agent will find-or-create the necessary records, enrich from the web if useful, and for reports it will return a React chart you can render as an artifact."
+    ),
+});
 
 const AGENT_NODE_GUIDE = `
 Each workflow node is one of:
@@ -139,6 +149,34 @@ const createWorkflowSchema = z.object({
 // ── Tool Handlers ──────────────────────────────────────────────────────
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
+
+async function handleSalesforceConcierge(
+  input: z.infer<typeof salesforceConciergeSchema>
+): Promise<ToolResult> {
+  try {
+    const result = await runSalesforceConcierge({ request: input.request });
+    return {
+      content: [
+        {
+          type: "text",
+          text:
+            result.text +
+            `\n\n---\n\n_Managed agent session ${result.sessionId} on agent ${result.agentId}._`,
+        },
+      ],
+    };
+  } catch (err) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Concierge error: ${(err as Error).message}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
 
 async function handleDescribeWorkflow(
   input: z.infer<typeof describeWorkflowSchema>
@@ -555,6 +593,14 @@ async function handleCreateWorkflow(
 export function createMcpServer(): McpServer {
   const server = new McpServer({ name: "flow-manager", version: "1.0.0" });
 
+  // ─── Tool: salesforce_concierge ────────────────────────────────────
+  server.tool(
+    "salesforce_concierge",
+    "Talk to Salesforce in plain English. This is the preferred tool for ad-hoc Salesforce work: logging a new deal you just met about (with automatic web enrichment), asking pipeline questions, updating a record, posting to Chatter. The agent finds-or-creates any records needed — users never paste Salesforce IDs. For report-style questions, the response includes a React chart you can promote to an artifact. Use this instead of start_workflow when the user is just talking about a single task.",
+    salesforceConciergeSchema.shape,
+    async (input) => handleSalesforceConcierge(input)
+  );
+
   // ─── Tool: list_workflows ──────────────────────────────────────────
   server.tool(
     "list_workflows",
@@ -603,7 +649,7 @@ export function createMcpServer(): McpServer {
     async (input) => handleCreateWorkflow(input)
   );
 
-  console.log("[mcp-http] McpServer created with 6 tools (direct service layer)");
+  console.log("[mcp-http] McpServer created with 7 tools (direct service layer)");
 
   return server;
 }
