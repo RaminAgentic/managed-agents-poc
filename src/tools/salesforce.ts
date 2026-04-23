@@ -18,9 +18,95 @@
  */
 import jsforce, { Connection } from "jsforce";
 import type Anthropic from "@anthropic-ai/sdk";
+import crypto from "crypto";
 
 let cachedConn: Connection | null = null;
 let loginPromise: Promise<Connection> | null = null;
+
+function base64url(buf: Buffer | string): string {
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+  return b.toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+/**
+ * JWT Bearer flow: sign a short-lived JWT with the configured RSA
+ * private key, exchange it for an access token at /services/oauth2/token.
+ *
+ * Required env vars:
+ *   SF_CLIENT_ID   — Connected App consumer key
+ *   SF_USERNAME    — user whose access we're assuming
+ *   SF_PRIVATE_KEY — PEM-formatted RSA private key. Newlines may be
+ *                    escaped as \n (Render env var restriction).
+ *   SF_LOGIN_URL   — defaults to https://login.salesforce.com
+ *
+ * Requires the Connected App's matching public cert to be uploaded
+ * and the running user's profile to be pre-authorized.
+ */
+async function jwtLogin(): Promise<Connection> {
+  const loginUrl = (process.env.SF_LOGIN_URL ?? "https://login.salesforce.com").replace(/\/+$/, "");
+  const clientId = process.env.SF_CLIENT_ID;
+  const username = process.env.SF_USERNAME;
+  const rawKey = process.env.SF_PRIVATE_KEY;
+  if (!clientId || !username || !rawKey) {
+    throw new Error(
+      "JWT flow requires SF_CLIENT_ID, SF_USERNAME, and SF_PRIVATE_KEY."
+    );
+  }
+  // Render escapes newlines as \n in env values — un-escape.
+  const privateKey = rawKey.includes("\\n")
+    ? rawKey.replace(/\\n/g, "\n")
+    : rawKey;
+
+  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64url(
+    JSON.stringify({
+      iss: clientId,
+      sub: username,
+      aud: loginUrl,
+      exp: Math.floor(Date.now() / 1000) + 180,
+    })
+  );
+  const signingInput = `${header}.${payload}`;
+  const signature = base64url(
+    crypto.sign("RSA-SHA256", Buffer.from(signingInput), privateKey)
+  );
+  const assertion = `${signingInput}.${signature}`;
+
+  const body = new URLSearchParams({
+    grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+    assertion,
+  });
+  const resp = await fetch(`${loginUrl}/services/oauth2/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  const text = await resp.text();
+  if (!resp.ok) {
+    let parsed: unknown = text;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      /* noop */
+    }
+    throw new Error(
+      `JWT exchange failed (HTTP ${resp.status}): ${JSON.stringify(parsed)}`
+    );
+  }
+  const json = JSON.parse(text) as {
+    access_token: string;
+    instance_url: string;
+    id?: string;
+  };
+  const conn = new Connection({
+    instanceUrl: json.instance_url,
+    accessToken: json.access_token,
+  });
+  console.log(
+    `[salesforce] Authenticated via JWT bearer as ${username} on ${json.instance_url}`
+  );
+  return conn;
+}
 
 async function getConnection(): Promise<Connection> {
   if (cachedConn) return cachedConn;
@@ -29,10 +115,26 @@ async function getConnection(): Promise<Connection> {
   const loginUrl = process.env.SF_LOGIN_URL ?? "https://login.salesforce.com";
   const username = process.env.SF_USERNAME;
   const password = process.env.SF_PASSWORD;
+  const privateKey = process.env.SF_PRIVATE_KEY;
+
+  // Prefer JWT bearer flow when a private key is present — works with
+  // MFA-enforced users and doesn't need a password at all.
+  if (privateKey) {
+    loginPromise = jwtLogin()
+      .then((c) => {
+        cachedConn = c;
+        return c;
+      })
+      .catch((err) => {
+        loginPromise = null;
+        throw err;
+      });
+    return loginPromise;
+  }
 
   if (!username || !password) {
     throw new Error(
-      "Salesforce tools not configured: set SF_USERNAME and SF_PASSWORD (password = password + security token) on Render."
+      "Salesforce tools not configured: set SF_USERNAME and either SF_PRIVATE_KEY (JWT flow) or SF_PASSWORD (password+token) on Render."
     );
   }
 
