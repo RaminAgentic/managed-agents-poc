@@ -33,7 +33,7 @@ const router = Router();
  */
 router.post("/runs", async (req: Request, res: Response) => {
   try {
-    const { workflowId, input } = req.body;
+    const { workflowId, input, notify, async: asyncOverride } = req.body ?? {};
 
     if (!workflowId || typeof workflowId !== "string") {
       res.status(400).json({ error: "'workflowId' is required" });
@@ -58,9 +58,11 @@ router.post("/runs", async (req: Request, res: Response) => {
       return;
     }
 
-    // Create the run record
+    // Create the run record — carry any per-run notify override.
     const runInput = input && typeof input === "object" ? input : {};
-    const runId = await createWorkflowRun(workflowId, runInput);
+    const runId = await createWorkflowRun(workflowId, runInput, {
+      notify: notify && typeof notify === "object" ? notify : undefined,
+    });
 
     // Feature gate: check env var
     if (process.env.ENABLE_WORKFLOW_EXECUTOR === "false") {

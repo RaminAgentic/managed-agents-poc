@@ -50,6 +50,23 @@ const startWorkflowSchema = z.object({
     .describe(
       "Input data for the workflow run as a JSON object. The shape depends on the workflow's input fields — call describe_workflow FIRST to learn what fields are required and their types, then ask the user for the values conversationally (don't require them to type JSON themselves)."
     ),
+  notify: z
+    .object({
+      slackChannel: z.string().optional(),
+      slackUserId: z.string().optional(),
+      webhookUrl: z.string().optional(),
+      email: z.string().optional(),
+    })
+    .optional()
+    .describe(
+      "v2: notify targets fired when the run reaches a terminal status (completed | failed | cancelled). Overrides the workflow's default completion.notify. Use this for long-running workflows so the user gets pinged instead of watching a spinner."
+    ),
+  wait: z
+    .boolean()
+    .optional()
+    .describe(
+      "v2: when true, block until the run terminates and return the final summary inline. When false (default for long-running flows), return the runId immediately. Prefer wait:false for anything that might take >30s."
+    ),
 });
 
 const getRunStatusSchema = z.object({
@@ -373,7 +390,9 @@ async function handleStartWorkflow(
 
     // Create the run record
     const runInput = input.input && typeof input.input === "object" ? input.input : {};
-    const runId = await persistence.createWorkflowRun(input.workflowId, runInput);
+    const runId = await persistence.createWorkflowRun(input.workflowId, runInput, {
+      notify: input.notify,
+    });
 
     // Feature gate: check env var (mirrors runRoutes.ts behavior)
     if (process.env.ENABLE_WORKFLOW_EXECUTOR === "false") {
@@ -387,8 +406,8 @@ async function handleStartWorkflow(
       };
     }
 
-    // Fire-and-forget — mirrors runRoutes.ts exactly
-    executeWorkflow(runId, schema, runInput).catch(async (err) => {
+    // Kick off executor (non-blocking). When wait=true we'll await it below.
+    const execPromise = executeWorkflow(runId, schema, runInput).catch(async (err) => {
       console.error(`[mcp] Unhandled error in run ${runId}:`, err);
       try {
         await updateRunStatus(runId, "failed");
@@ -397,11 +416,45 @@ async function handleStartWorkflow(
       }
     });
 
+    if (input.wait === true) {
+      await execPromise;
+      // Fetch the final state and return a summary inline.
+      const detail = await persistence.getWorkflowRunWithDetails(runId);
+      const finalStatus = detail?.run.status ?? "unknown";
+      let summary = "";
+      if (detail) {
+        const finalizeId = schema.nodes.find((n) => n.type === "finalize")?.id;
+        const finalStep = finalizeId
+          ? detail.steps.find((s) => s.node_id === finalizeId)
+          : undefined;
+        if (finalStep?.output_json) {
+          try {
+            const out = JSON.parse(finalStep.output_json);
+            summary =
+              typeof out?.text === "string" ? out.text : JSON.stringify(out);
+          } catch {
+            summary = finalStep.output_json;
+          }
+        }
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: `**Run ${finalStatus}** (id=${runId})\n\n${summary || "(no summary available)"}`,
+          },
+        ],
+      };
+    }
+
+    const notifyNote = input.notify
+      ? `\n- **Notify**: ${Object.keys(input.notify).filter((k) => (input.notify as Record<string, unknown>)[k]).join(", ")}`
+      : "";
     return {
       content: [
         {
           type: "text",
-          text: `Workflow run started successfully!\n\n- **Run ID**: ${runId}\n- **Status**: pending\n\nUse \`get_run_status\` with run ID "${runId}" to monitor progress.`,
+          text: `Workflow run started.\n\n- **Run ID**: ${runId}\n- **Status**: pending${notifyNote}\n\nUse \`get_run_status\` to monitor, or wait for the notify target to fire on completion.`,
         },
       ],
     };
