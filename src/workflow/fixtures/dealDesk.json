@@ -32,13 +32,10 @@
         },
         "timeoutSeconds": 300,
         "outputFormat": "json",
-        "mcpServers": [
-          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" }
-        ],
         "tools": [
-          { "type": "agent_toolset_20260401" },
-          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } }
-        ]
+          { "type": "agent_toolset_20260401" }
+        ],
+        "includeSalesforceTools": true
       }
     },
     {
@@ -53,14 +50,13 @@
         },
         "timeoutSeconds": 600,
         "mcpServers": [
-          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" },
-          { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" }
+          { "name": "slack", "type": "url", "url": "https://mcp.slack.com/mcp" }
         ],
         "tools": [
           { "type": "agent_toolset_20260401" },
-          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } },
-          { "type": "mcp_toolset", "mcp_server_name": "slack",      "default_config": { "permission_policy": { "type": "always_allow" } } }
-        ]
+          { "type": "mcp_toolset", "mcp_server_name": "slack", "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ],
+        "includeSalesforceTools": true
       }
     },
     {

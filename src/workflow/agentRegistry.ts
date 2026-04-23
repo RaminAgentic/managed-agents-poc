@@ -24,7 +24,23 @@ import crypto from "crypto";
 import type Anthropic from "@anthropic-ai/sdk";
 import prisma from "../db/client";
 import { anthropic } from "../config/anthropic";
-import type { AgentNodeConfig, ModelConfig } from "./types";
+import type { AgentNodeConfig, ModelConfig, AgentTool } from "./types";
+import { SF_TOOL_DEFINITIONS } from "../tools/salesforce";
+
+/**
+ * Expand shorthand flags (e.g. includeSalesforceTools) into full
+ * tool definitions. Called at registration time so the resulting
+ * config is exactly what Anthropic receives.
+ */
+function expandTools(config: AgentNodeConfig): AgentTool[] | undefined {
+  const base = (config.tools ?? []).slice();
+  if (config.includeSalesforceTools) {
+    for (const t of SF_TOOL_DEFINITIONS) {
+      base.push(t as unknown as AgentTool);
+    }
+  }
+  return base.length > 0 ? base : undefined;
+}
 
 const DEFAULT_MODEL = "claude-opus-4-7";
 
@@ -49,8 +65,9 @@ function buildIdentity(
   if (config.mcpServers && config.mcpServers.length > 0) {
     identity.mcpServers = config.mcpServers;
   }
-  if (config.tools && config.tools.length > 0) {
-    identity.tools = config.tools;
+  const expandedTools = expandTools(config);
+  if (expandedTools && expandedTools.length > 0) {
+    identity.tools = expandedTools;
   }
   if (config.skills && config.skills.length > 0) {
     identity.skills = config.skills;
@@ -142,7 +159,7 @@ export async function findOrCreateAgent(params: {
     model: modelConfig?.model ?? DEFAULT_MODEL,
     instructions: config.instructions,
     mcpServers: config.mcpServers,
-    tools: config.tools,
+    tools: expandTools(config),
     skills: config.skills,
   });
 

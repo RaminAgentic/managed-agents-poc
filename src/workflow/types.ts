@@ -78,6 +78,14 @@ export interface AgentNodeConfig {
   tools?: AgentTool[];
   /** Anthropic-authored skills (docx, xlsx, etc.). */
   skills?: AgentSkill[];
+  /**
+   * Shorthand: when true, the SF_TOOL_DEFINITIONS (sf_query, sf_create,
+   * sf_update, sf_upsert, sf_describe, sf_chatter) are appended to the
+   * tools list before the agent is registered with Anthropic. These
+   * custom tools are dispatched server-side by our session handler
+   * against a jsforce-backed Connection.
+   */
+  includeSalesforceTools?: boolean;
 }
 
 /** Deterministic conditional node. Evaluates `expression` against the run

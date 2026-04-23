@@ -29,6 +29,10 @@ import { resolveInputMapping, substituteTemplate } from "../resolveInputMapping"
 import { setStepAgentSession, setStepAgent } from "../persistence";
 import { findOrCreateAgent } from "../agentRegistry";
 import { getEnvironmentId } from "../../agent/managedAgentSetup";
+import {
+  SF_TOOL_NAMES,
+  dispatchSalesforceTool,
+} from "../../tools/salesforce";
 
 const DEFAULT_TIMEOUT_SECONDS = 300;
 const DEFAULT_MODEL = "claude-opus-4-7";
@@ -172,6 +176,11 @@ async function runSession(params: {
   });
 
   let responseText = "";
+  const pendingToolCalls: Array<{
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
+  }> = [];
 
   for await (const event of stream) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -185,6 +194,19 @@ async function runSession(params: {
         }
         break;
 
+      case "agent.custom_tool_use":
+        console.log(
+          `[agentNodeHandler] custom_tool_use: ${e.name} ${JSON.stringify(
+            e.input
+          ).slice(0, 200)}`
+        );
+        pendingToolCalls.push({
+          id: e.id,
+          name: e.name,
+          input: (e.input ?? {}) as Record<string, unknown>,
+        });
+        break;
+
       case "session.status_idle": {
         const reason = e.stop_reason?.type;
         if (reason === "end_turn") {
@@ -195,14 +217,35 @@ async function runSession(params: {
             `Managed agent session ${sessionId} exhausted retries`
           );
         }
-        // For requires_action, the managed agent is waiting for tool
-        // results. Since we only use MCP / skill tools (all dispatched
-        // server-side by Anthropic), we should never hit this path.
-        // If we do, it's an unexpected custom-tool use — log and end.
         if (reason === "requires_action") {
-          console.warn(
-            `[agentNodeHandler] Session ${sessionId} entered requires_action — unexpected for MCP-only workflows`
+          if (pendingToolCalls.length === 0) {
+            console.warn(
+              `[agentNodeHandler] Session ${sessionId} requires_action but no tool calls queued — unexpected`
+            );
+            break;
+          }
+
+          // Dispatch every queued custom tool in parallel
+          const results = await Promise.all(
+            pendingToolCalls.map(async (tc) => {
+              let result: string;
+              if (SF_TOOL_NAMES.has(tc.name)) {
+                result = await dispatchSalesforceTool(tc.name, tc.input);
+              } else {
+                result = `Error: no handler registered for custom tool "${tc.name}"`;
+              }
+              return { tc, result };
+            })
           );
+
+          const events = results.map(({ tc, result }) => ({
+            type: "user.custom_tool_result" as const,
+            custom_tool_use_id: tc.id,
+            content: [{ type: "text" as const, text: result }],
+          }));
+
+          await anthropic.beta.sessions.events.send(sessionId, { events });
+          pendingToolCalls.length = 0;
         }
         break;
       }

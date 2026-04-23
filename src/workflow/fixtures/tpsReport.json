@@ -33,14 +33,13 @@
         "timeoutSeconds": 600,
         "outputFormat": "json",
         "mcpServers": [
-          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" },
-          { "name": "gdrive",     "type": "url", "url": "https://mcp.google.com/drive" }
+          { "name": "gdrive", "type": "url", "url": "https://mcp.google.com/drive" }
         ],
         "tools": [
           { "type": "agent_toolset_20260401" },
-          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } },
-          { "type": "mcp_toolset", "mcp_server_name": "gdrive",     "default_config": { "permission_policy": { "type": "always_allow" } } }
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive", "default_config": { "permission_policy": { "type": "always_allow" } } }
         ],
+        "includeSalesforceTools": true,
         "skills": [
           { "type": "anthropic", "skill_id": "docx" }
         ]

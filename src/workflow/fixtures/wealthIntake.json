@@ -53,16 +53,15 @@
         "outputFormat": "json",
         "timeoutSeconds": 600,
         "mcpServers": [
-          { "name": "gdrive",     "type": "url", "url": "https://mcp.google.com/drive" },
-          { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" },
-          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" }
+          { "name": "gdrive", "type": "url", "url": "https://mcp.google.com/drive" },
+          { "name": "slack",  "type": "url", "url": "https://mcp.slack.com/mcp" }
         ],
         "tools": [
           { "type": "agent_toolset_20260401" },
-          { "type": "mcp_toolset", "mcp_server_name": "gdrive",     "default_config": { "permission_policy": { "type": "always_allow" } } },
-          { "type": "mcp_toolset", "mcp_server_name": "slack",      "default_config": { "permission_policy": { "type": "always_allow" } } },
-          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } }
-        ]
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive", "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",  "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ],
+        "includeSalesforceTools": true
       }
     },
     {
@@ -79,16 +78,15 @@
         "outputFormat": "json",
         "timeoutSeconds": 600,
         "mcpServers": [
-          { "name": "gdrive",     "type": "url", "url": "https://mcp.google.com/drive" },
-          { "name": "slack",      "type": "url", "url": "https://mcp.slack.com/mcp" },
-          { "name": "salesforce", "type": "url", "url": "https://mcp.salesforce.com/mcp" }
+          { "name": "gdrive", "type": "url", "url": "https://mcp.google.com/drive" },
+          { "name": "slack",  "type": "url", "url": "https://mcp.slack.com/mcp" }
         ],
         "tools": [
           { "type": "agent_toolset_20260401" },
-          { "type": "mcp_toolset", "mcp_server_name": "gdrive",     "default_config": { "permission_policy": { "type": "always_allow" } } },
-          { "type": "mcp_toolset", "mcp_server_name": "slack",      "default_config": { "permission_policy": { "type": "always_allow" } } },
-          { "type": "mcp_toolset", "mcp_server_name": "salesforce", "default_config": { "permission_policy": { "type": "always_allow" } } }
-        ]
+          { "type": "mcp_toolset", "mcp_server_name": "gdrive", "default_config": { "permission_policy": { "type": "always_allow" } } },
+          { "type": "mcp_toolset", "mcp_server_name": "slack",  "default_config": { "permission_policy": { "type": "always_allow" } } }
+        ],
+        "includeSalesforceTools": true
       }
     },
     {
