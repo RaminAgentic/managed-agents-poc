@@ -766,7 +766,7 @@ export function createMcpServer(): McpServer {
   // ─── Tool: create_workflow ─────────────────────────────────────────
   server.tool(
     "create_workflow",
-    "Create a new workflow definition with a name, nodes, and edges. The tool handles wrapping into the correct schema format.",
+    "Assemble and publish a new workflow definition (nodes + edges). Use this when the user asks to 'create a flow' or 'build a workflow' that should be reusable. After creation, the workflow is immediately visible in Run History / the flow editor and callable via start_workflow by its returned ID. Best practice: after creating, offer to start the run immediately. See the `nodes` parameter description for the full shape of agent nodes (MCP servers, tools, skills, model/effort, etc.) and the catalog of known MCP URLs.",
     createWorkflowSchema.shape,
     async (input) => handleCreateWorkflow(input)
   );
