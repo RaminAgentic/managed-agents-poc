@@ -25,7 +25,7 @@ import {
   dispatchSalesforceTool,
 } from "../tools/salesforce";
 
-const MODEL = "claude-opus-4-7";
+const MODEL = "claude-sonnet-4-6";
 
 const SYSTEM_PROMPT = `
 You are the Salesforce concierge for a sales + revenue-ops team.
