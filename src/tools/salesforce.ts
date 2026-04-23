@@ -39,19 +39,41 @@ async function getConnection(): Promise<Connection> {
   const clientId = process.env.SF_CLIENT_ID;
   const clientSecret = process.env.SF_CLIENT_SECRET;
 
+  const useOAuth2 = Boolean(clientId && clientSecret);
   loginPromise = (async () => {
-    const conn = clientId && clientSecret
+    const conn = useOAuth2
       ? new Connection({ loginUrl, oauth2: { clientId, clientSecret, loginUrl } })
       : new Connection({ loginUrl });
-    await conn.login(username, password);
+    try {
+      await conn.login(username, password);
+    } catch (err) {
+      const e = err as { errorCode?: string; message?: string; name?: string };
+      const detail = [
+        e.errorCode ? `code=${e.errorCode}` : null,
+        e.name ? `name=${e.name}` : null,
+        e.message ?? String(err),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      console.error(
+        `[salesforce] Login failed (${useOAuth2 ? "OAuth2 username-password" : "SOAP"}): ${detail}`
+      );
+      throw new Error(detail);
+    }
     console.log(
-      `[salesforce] Authenticated via ${clientId && clientSecret ? "OAuth2 username-password" : "SOAP login"} as ${conn.userInfo?.id} on ${conn.instanceUrl}`
+      `[salesforce] Authenticated via ${useOAuth2 ? "OAuth2 username-password" : "SOAP login"} as ${conn.userInfo?.id} on ${conn.instanceUrl}`
     );
     cachedConn = conn;
     return conn;
   })();
 
-  return loginPromise;
+  try {
+    return await loginPromise;
+  } catch (err) {
+    // Reset so the next caller retries with fresh env vars / fixed config
+    loginPromise = null;
+    throw err;
+  }
 }
 
 // ── Tool schemas (Anthropic custom tool shape) ────────────────────────
