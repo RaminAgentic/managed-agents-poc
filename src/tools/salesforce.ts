@@ -290,7 +290,7 @@ export const SF_TOOL_DEFINITIONS: Anthropic.Beta.Agents.BetaManagedAgentsCustomT
       type: "custom",
       name: "sf_chatter",
       description:
-        "Post a Chatter feed item on any Salesforce record (Account, Opportunity, Contact, etc.). Good for audit trails + human handoffs.",
+        "Post a Chatter feed item on any Salesforce record (Account, Opportunity, Contact, etc.). Good for audit trails + human handoffs. Returns { id } — the FeedItem Id, which you can pass to sf_watch_chatter to wait for replies.",
       input_schema: {
         type: "object",
         properties: {
@@ -301,6 +301,36 @@ export const SF_TOOL_DEFINITIONS: Anthropic.Beta.Agents.BetaManagedAgentsCustomT
           body: { type: "string", description: "Plain-text message body." },
         },
         required: ["parentId", "body"],
+      },
+    },
+    {
+      type: "custom",
+      name: "sf_watch_chatter",
+      description:
+        "Wait for replies on a Chatter FeedItem. Blocks until a new FeedComment appears (relative to `sinceIso`, default: now) or the timeout elapses. Use this after sf_chatter when you want the agent to react to a human's reply — e.g. '@-mention the account owner, ask a yes/no question, wait for their reply, then act on it'. Returns an array of comments or an empty array on timeout.",
+      input_schema: {
+        type: "object",
+        properties: {
+          feedItemId: {
+            type: "string",
+            description: "Id returned by sf_chatter (the FeedItem to watch).",
+          },
+          timeoutSeconds: {
+            type: "number",
+            description:
+              "How long to wait for a reply before giving up. Default 300 (5 min). Max 600.",
+          },
+          pollIntervalSeconds: {
+            type: "number",
+            description: "Seconds between polls. Default 10.",
+          },
+          sinceIso: {
+            type: "string",
+            description:
+              "ISO-8601 timestamp — only return comments created after this. Default: the moment this tool is invoked.",
+          },
+        },
+        required: ["feedItemId"],
       },
     },
   ];
@@ -419,6 +449,61 @@ export async function dispatchSalesforceTool(
           `[salesforce] sf_chatter on ${parentId} → ${trimForLog(result)}`
         );
         return JSON.stringify(result);
+      }
+
+      case "sf_watch_chatter": {
+        const feedItemId = String(input.feedItemId ?? "");
+        if (!feedItemId) {
+          return "Error: sf_watch_chatter requires 'feedItemId'.";
+        }
+        const timeoutSeconds = Math.min(
+          Number(input.timeoutSeconds ?? 300) || 300,
+          600
+        );
+        const pollIntervalSeconds = Math.max(
+          Number(input.pollIntervalSeconds ?? 10) || 10,
+          3
+        );
+        const sinceIso =
+          typeof input.sinceIso === "string"
+            ? input.sinceIso
+            : new Date().toISOString();
+
+        const deadline = Date.now() + timeoutSeconds * 1000;
+        console.log(
+          `[salesforce] sf_watch_chatter ${feedItemId} — waiting up to ${timeoutSeconds}s for replies since ${sinceIso}`
+        );
+
+        while (Date.now() < deadline) {
+          const soql =
+            `SELECT Id, Body, CreatedDate, CreatedBy.Name ` +
+            `FROM FeedComment ` +
+            `WHERE FeedItemId = '${feedItemId.replace(/'/g, "\\'")}' ` +
+            `AND CreatedDate > ${sinceIso} ` +
+            `ORDER BY CreatedDate ASC`;
+          try {
+            const result = await conn.query(soql);
+            if (result.totalSize > 0) {
+              console.log(
+                `[salesforce] sf_watch_chatter ${feedItemId} — got ${result.totalSize} new reply(ies)`
+              );
+              return JSON.stringify({
+                feedItemId,
+                replies: result.records,
+                timedOut: false,
+              });
+            }
+          } catch (err) {
+            console.error("[salesforce] sf_watch_chatter poll error:", err);
+          }
+          await new Promise((r) =>
+            setTimeout(r, pollIntervalSeconds * 1000)
+          );
+        }
+        console.log(
+          `[salesforce] sf_watch_chatter ${feedItemId} — timed out with no replies`
+        );
+        return JSON.stringify({ feedItemId, replies: [], timedOut: true });
       }
 
       default:
