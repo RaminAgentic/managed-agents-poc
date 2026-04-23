@@ -15,6 +15,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import prisma from "../db/client";
 import { validateWorkflowSchema } from "../workflow/schemaValidator";
+import { reloadTriggers } from "../workflow/scheduler";
 
 export const FLOW_BUILDER_TOOL_DEFINITIONS: Anthropic.Beta.Agents.BetaManagedAgentsCustomToolParams[] =
   [
@@ -87,18 +88,24 @@ async function saveWorkflow(input: Record<string, unknown>): Promise<string> {
   const schemaJson = JSON.stringify(schema);
 
   const existing = await prisma.workflow.findUnique({ where: { id: s.id } });
+  let created: boolean;
   if (existing) {
     await prisma.workflow.update({
       where: { id: s.id },
       data: { name: s.name, schemaJson, updatedAt: new Date() },
     });
-    return JSON.stringify({ id: s.id, name: s.name, created: false });
+    created = false;
+  } else {
+    await prisma.workflow.create({
+      data: { id: s.id, name: s.name, schemaJson },
+    });
+    created = true;
   }
-
-  await prisma.workflow.create({
-    data: { id: s.id, name: s.name, schemaJson },
-  });
-  return JSON.stringify({ id: s.id, name: s.name, created: true });
+  // v2: rebuild trigger tables so any new cron / webhook registers immediately.
+  reloadTriggers().catch((err) =>
+    console.warn("[flowBuilder] reloadTriggers failed:", err)
+  );
+  return JSON.stringify({ id: s.id, name: s.name, created });
 }
 
 async function listExisting(): Promise<string> {

@@ -26,7 +26,7 @@ import type {
   AgentNodeConfig,
 } from "../types";
 import { resolveInputMapping, substituteTemplate } from "../resolveInputMapping";
-import { setStepAgentSession, setStepAgent } from "../persistence";
+import { setStepAgentSession, setStepAgent, incrementTokensUsed } from "../persistence";
 import { findOrCreateAgent } from "../agentRegistry";
 import { getEnvironmentId } from "../../agent/managedAgentSetup";
 import {
@@ -141,6 +141,25 @@ export async function runAgentNode(
   });
 
   const textContent = await Promise.race([runPromise, timeoutPromise]);
+
+  // Step 5b: report usage back to the run for budget enforcement.
+  try {
+    const terminated = await anthropic.beta.sessions.retrieve(session.id);
+    const usage = terminated.usage;
+    const tokens =
+      (usage?.input_tokens ?? 0) + (usage?.output_tokens ?? 0);
+    if (tokens > 0) {
+      const total = await incrementTokensUsed(ctx.run.id, tokens);
+      console.log(
+        `[agentNodeHandler] session ${session.id} usage=${tokens} tokens (run total=${total})`
+      );
+    }
+  } catch (err) {
+    console.warn(
+      `[agentNodeHandler] failed to fetch usage for ${session.id}:`,
+      err instanceof Error ? err.message : err
+    );
+  }
 
   // Step 6: parse output
   const outputs: Record<string, unknown> = { text: textContent };

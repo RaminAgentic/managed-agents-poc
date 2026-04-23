@@ -46,6 +46,7 @@ import {
   updateRunStatus,
   isRunCancelRequested,
 } from "./persistence";
+import prisma from "../db/client";
 import { dispatchNotify } from "./notify";
 
 const MAX_STEPS = 100;
@@ -178,6 +179,8 @@ export async function executeWorkflow(
 
   let totalExecuted = 0;
   let finalizeSeen = false;
+  const runStartedAt = Date.now();
+  const budget = workflowSchema.budget;
 
   try {
     while (true) {
@@ -190,6 +193,40 @@ export async function executeWorkflow(
         await dispatchNotify(runId, workflowSchema, "cancelled").catch(() => {});
         console.log(`[executor] Run ${runId} cancelled by user request.`);
         return;
+      }
+
+      // v2: enforce budget caps between batches.
+      if (budget) {
+        if (
+          typeof budget.maxDurationSeconds === "number" &&
+          (Date.now() - runStartedAt) / 1000 > budget.maxDurationSeconds
+        ) {
+          await logEvent(runId, null, "budget_exceeded", {
+            kind: "duration",
+            elapsedSeconds: Math.round((Date.now() - runStartedAt) / 1000),
+            maxDurationSeconds: budget.maxDurationSeconds,
+          });
+          throw new Error(
+            `Run exceeded budget.maxDurationSeconds (${budget.maxDurationSeconds}s)`
+          );
+        }
+        if (typeof budget.maxTokens === "number") {
+          const row = await prisma.workflowRun.findUnique({
+            where: { id: runId },
+            select: { tokensUsed: true },
+          });
+          const used = row?.tokensUsed ?? 0;
+          if (used > budget.maxTokens) {
+            await logEvent(runId, null, "budget_exceeded", {
+              kind: "tokens",
+              tokensUsed: used,
+              maxTokens: budget.maxTokens,
+            });
+            throw new Error(
+              `Run exceeded budget.maxTokens (${used} > ${budget.maxTokens})`
+            );
+          }
+        }
       }
 
       const ready = collectReady(state, workflowSchema);

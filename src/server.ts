@@ -26,6 +26,7 @@ import slackRoutes from "./api/slackRoutes";
 import approvalRoutes from "./api/approvalRoutes";
 import diagRoutes from "./api/diagRoutes";
 import { mcpHttpHandler } from "./mcp/httpHandler";
+import { bootScheduler, webhookRouter } from "./workflow/scheduler";
 
 // In dev, Vite serves the frontend on 5002 and proxies /api to 5001.
 // In production, Express serves everything (static + API) on 5002.
@@ -78,6 +79,14 @@ app.use("/api", approvalRoutes);
 
 // Diagnostic smoke tests (GET /diag/salesforce, ...)
 app.use("/api", diagRoutes);
+
+// v2: workflow webhook triggers (POST /triggers/<path>)
+app.use(webhookRouter());
+
+// v2: boot cron/webhook scheduler (best-effort — don't crash the server if it fails)
+bootScheduler().catch((err) =>
+  console.error("[startup] Scheduler boot failed:", err)
+);
 
 /**
  * POST /api/chat
