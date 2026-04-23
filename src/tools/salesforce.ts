@@ -36,11 +36,16 @@ async function getConnection(): Promise<Connection> {
     );
   }
 
+  const clientId = process.env.SF_CLIENT_ID;
+  const clientSecret = process.env.SF_CLIENT_SECRET;
+
   loginPromise = (async () => {
-    const conn = new Connection({ loginUrl });
+    const conn = clientId && clientSecret
+      ? new Connection({ loginUrl, oauth2: { clientId, clientSecret, loginUrl } })
+      : new Connection({ loginUrl });
     await conn.login(username, password);
     console.log(
-      `[salesforce] Authenticated as ${conn.userInfo?.id} on ${conn.instanceUrl}`
+      `[salesforce] Authenticated via ${clientId && clientSecret ? "OAuth2 username-password" : "SOAP login"} as ${conn.userInfo?.id} on ${conn.instanceUrl}`
     );
     cachedConn = conn;
     return conn;
