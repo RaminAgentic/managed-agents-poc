@@ -9,7 +9,15 @@
       "type": "input",
       "name": "Period",
       "config": {
-        "requiredFields": ["period"]
+        "description": "Generate the quarterly TPS Report (with the correct cover sheet) and route it through three signatories for approval before publishing.",
+        "fields": {
+          "period": {
+            "description": "Reporting period the TPS report should cover, e.g. 'Q2 2026' or 'March 2026'.",
+            "type": "string",
+            "required": true,
+            "example": "Q2 2026"
+          }
+        }
       }
     },
     {

@@ -9,7 +9,15 @@
       "type": "input",
       "name": "Alert",
       "config": {
-        "requiredFields": ["sentryIssueId"]
+        "description": "Triage a Sentry alert: pull the event, correlate with recent commits, open a Linear ticket, post an incident thread to Slack, and recommend a rollback if confident.",
+        "fields": {
+          "sentryIssueId": {
+            "description": "Sentry issue ID or short ID (e.g. 'PAYMENTS-4421' or '4421').",
+            "type": "string",
+            "required": true,
+            "example": "PAYMENTS-4421"
+          }
+        }
       }
     },
     {

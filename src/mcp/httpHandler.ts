@@ -30,13 +30,22 @@ import { renderWorkflowMermaid } from "../workflow/renderMermaid";
 
 const listWorkflowsSchema = z.object({});
 
+const describeWorkflowSchema = z.object({
+  workflowId: z
+    .string()
+    .min(1)
+    .describe("The ID of the workflow to describe (use list_workflows to find IDs)"),
+});
+
 const startWorkflowSchema = z.object({
   workflowId: z.string().min(1).describe("The ID of the workflow to start"),
   input: z
     .record(z.unknown())
     .optional()
     .default({})
-    .describe("Optional input data for the workflow run"),
+    .describe(
+      "Input data for the workflow run as a JSON object. The shape depends on the workflow's input fields — call describe_workflow FIRST to learn what fields are required and their types, then ask the user for the values conversationally (don't require them to type JSON themselves)."
+    ),
 });
 
 const getRunStatusSchema = z.object({
@@ -130,6 +139,108 @@ const createWorkflowSchema = z.object({
 // ── Tool Handlers ──────────────────────────────────────────────────────
 
 type ToolResult = { content: Array<{ type: "text"; text: string }>; isError?: boolean };
+
+async function handleDescribeWorkflow(
+  input: z.infer<typeof describeWorkflowSchema>
+): Promise<ToolResult> {
+  try {
+    const workflow = await persistence.getWorkflow(input.workflowId);
+    if (!workflow) {
+      return {
+        content: [
+          { type: "text", text: `Error: Workflow '${input.workflowId}' not found.` },
+        ],
+        isError: true,
+      };
+    }
+
+    let schema: WorkflowSchema;
+    try {
+      schema = JSON.parse(workflow.schema_json) as WorkflowSchema;
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error: Could not parse workflow schema: ${(err as Error).message}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const entryNode = schema.nodes.find((n) => n.id === schema.entryNodeId);
+    const inputCfg = (entryNode?.config ?? {}) as {
+      description?: string;
+      fields?: Record<
+        string,
+        {
+          description?: string;
+          type?: string;
+          required?: boolean;
+          example?: string;
+        }
+      >;
+      requiredFields?: string[];
+    };
+
+    const purpose =
+      inputCfg.description ?? `Workflow "${workflow.name}" — no description provided.`;
+
+    // Build a normalized input-fields description
+    const fieldLines: string[] = [];
+    if (inputCfg.fields && Object.keys(inputCfg.fields).length > 0) {
+      for (const [name, spec] of Object.entries(inputCfg.fields)) {
+        const parts: string[] = [`  - **${name}** (${spec.type ?? "string"}${spec.required === false ? ", optional" : ""})`];
+        if (spec.description) parts.push(`: ${spec.description}`);
+        if (spec.example) parts.push(` — example: \`${spec.example}\``);
+        fieldLines.push(parts.join(""));
+      }
+    } else if (inputCfg.requiredFields && inputCfg.requiredFields.length > 0) {
+      for (const name of inputCfg.requiredFields) {
+        fieldLines.push(`  - **${name}** (string, required)`);
+      }
+    }
+
+    const nodeSummary = schema.nodes
+      .filter((n) => n.type !== "input" && n.type !== "finalize")
+      .map((n) => `  - ${n.type}: **${n.name}** (id: \`${n.id}\`)`)
+      .join("\n");
+
+    const conversationalHint =
+      fieldLines.length > 0
+        ? `\n**To start this workflow:** gather the values above from the user in a natural conversation (don't make them type JSON). When you have them, call \`start_workflow\` with \`workflowId: "${workflow.id}"\` and an \`input\` object mapping each field name to the value the user gave you.`
+        : `\n**To start this workflow:** call \`start_workflow\` with \`workflowId: "${workflow.id}"\` and an empty \`input: {}\`.`;
+
+    const text = [
+      `## ${workflow.name}`,
+      `**ID:** \`${workflow.id}\` · **Version:** ${workflow.version}`,
+      "",
+      `**Purpose:** ${purpose}`,
+      "",
+      fieldLines.length > 0 ? "**Inputs the workflow needs:**" : "**Inputs:** none required.",
+      ...fieldLines,
+      "",
+      nodeSummary ? "**Steps the workflow performs:**" : "",
+      nodeSummary,
+      conversationalHint,
+    ]
+      .filter((l) => l !== null && l !== undefined)
+      .join("\n");
+
+    return { content: [{ type: "text", text }] };
+  } catch (err) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error describing workflow: ${(err as Error).message}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
 
 async function handleListWorkflows(): Promise<ToolResult> {
   try {
@@ -452,10 +563,18 @@ export function createMcpServer(): McpServer {
     async () => handleListWorkflows()
   );
 
+  // ─── Tool: describe_workflow ───────────────────────────────────────
+  server.tool(
+    "describe_workflow",
+    "Describe a workflow in human terms: what it does, what inputs it needs (with descriptions and example values), and what steps it runs. Call this BEFORE start_workflow so you can collect inputs from the user conversationally instead of demanding JSON.",
+    describeWorkflowSchema.shape,
+    async (input) => handleDescribeWorkflow(input)
+  );
+
   // ─── Tool: start_workflow ──────────────────────────────────────────
   server.tool(
     "start_workflow",
-    "Start a workflow run. Requires the workflow ID and optional input data. Returns the new run ID.",
+    "Start a workflow run. Requires the workflow ID and (usually) input data. Best practice: call describe_workflow first to learn what inputs the workflow needs, then gather those values from the user in natural conversation — don't ask the user to provide JSON.",
     startWorkflowSchema.shape,
     async (input) => handleStartWorkflow(input)
   );
@@ -484,7 +603,7 @@ export function createMcpServer(): McpServer {
     async (input) => handleCreateWorkflow(input)
   );
 
-  console.log("[mcp-http] McpServer created with 5 tools (direct service layer)");
+  console.log("[mcp-http] McpServer created with 6 tools (direct service layer)");
 
   return server;
 }

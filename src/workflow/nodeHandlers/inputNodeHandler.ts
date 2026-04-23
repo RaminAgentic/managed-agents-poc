@@ -33,9 +33,18 @@ export async function runInputNode(
   _opts: HandlerOptions
 ): Promise<StepResult> {
   const config = node.config as InputNodeConfig;
-  const requiredFields = config.requiredFields ?? [];
 
-  // Validate required fields
+  // Build the effective required-field set from either the new `fields`
+  // map (preferred) or the legacy `requiredFields` array (back-compat).
+  const requiredFromFields = config.fields
+    ? Object.entries(config.fields)
+        .filter(([, spec]) => spec.required !== false)
+        .map(([name]) => name)
+    : [];
+  const requiredFields = Array.from(
+    new Set([...(config.requiredFields ?? []), ...requiredFromFields])
+  );
+
   const missing = requiredFields.filter((f) => !(f in ctx.run.input));
   if (missing.length > 0) {
     throw new InputValidationError(node.id, missing);

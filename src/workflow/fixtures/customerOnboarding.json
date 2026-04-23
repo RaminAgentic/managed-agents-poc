@@ -9,7 +9,21 @@
       "type": "input",
       "name": "Customer intake",
       "config": {
-        "requiredFields": ["customerName", "driveFolderUrl"]
+        "description": "Onboard a new customer from a Google Drive folder of their submitted documents. Classifies docs, extracts identity / income / address in parallel, runs a KYC gate, and creates the Salesforce account on approval.",
+        "fields": {
+          "customerName": {
+            "description": "Customer's full legal name as they'd like it in Salesforce.",
+            "type": "string",
+            "required": true,
+            "example": "Jane Margaret Park"
+          },
+          "driveFolderUrl": {
+            "description": "Shareable Google Drive folder URL containing the customer's intake documents (ID, pay stubs, utility bill, etc.).",
+            "type": "url",
+            "required": true,
+            "example": "https://drive.google.com/drive/folders/1AbC..."
+          }
+        }
       }
     },
     {

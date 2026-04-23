@@ -9,7 +9,15 @@
       "type": "input",
       "name": "Deal reference",
       "config": {
-        "requiredFields": ["opportunityId"]
+        "description": "Analyze a Salesforce opportunity against pricing policy, post to #deal-desk for optional CFO approval, then write the decision back to Salesforce.",
+        "fields": {
+          "opportunityId": {
+            "description": "Salesforce Opportunity ID to review (15 or 18-char ID starting with 006).",
+            "type": "string",
+            "required": true,
+            "example": "0063K00000XyZab"
+          }
+        }
       }
     },
     {

@@ -9,7 +9,21 @@
       "type": "input",
       "name": "Client intake",
       "config": {
-        "requiredFields": ["clientName", "driveFolderUrl"]
+        "description": "Intake a new wealth-management client. A router agent classifies as HNW / retail / incomplete based on the submitted documents, and the appropriate downstream specialist builds the profile in Salesforce.",
+        "fields": {
+          "clientName": {
+            "description": "Client's full legal name.",
+            "type": "string",
+            "required": true,
+            "example": "Alexandra Lin"
+          },
+          "driveFolderUrl": {
+            "description": "Google Drive folder with the client's intake documents (tax returns, investment statements, ID, etc.).",
+            "type": "url",
+            "required": true,
+            "example": "https://drive.google.com/drive/folders/1Xyz..."
+          }
+        }
       }
     },
     {

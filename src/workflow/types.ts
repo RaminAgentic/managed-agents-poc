@@ -23,9 +23,26 @@ export interface ModelConfig {
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
 }
 
+/** A single input field with metadata for conversational collection. */
+export interface InputFieldSpec {
+  /** Human-readable description of what this field is. */
+  description?: string;
+  /** Rough type hint — drives prompt wording and light validation. */
+  type?: "string" | "number" | "boolean" | "url" | "email" | "date";
+  /** If true, the workflow cannot start without this field. */
+  required?: boolean;
+  /** Example value to show the user / include in prompts. */
+  example?: string;
+}
+
 /** Configuration specific to input nodes */
 export interface InputNodeConfig {
+  /** Legacy: plain field names (maintained for back-compat). */
   requiredFields?: string[];
+  /** Preferred: per-field metadata. Keyed by field name. */
+  fields?: Record<string, InputFieldSpec>;
+  /** One-liner describing what the workflow does overall. */
+  description?: string;
 }
 
 /** A remote MCP server the agent can use during its session. */

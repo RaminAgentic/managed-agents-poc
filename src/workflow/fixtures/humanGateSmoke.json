@@ -1,0 +1,52 @@
+{
+  "id": "wf-human-gate-smoke",
+  "name": "Human Gate Smoke Test",
+  "version": "1.0",
+  "entryNodeId": "input",
+  "nodes": [
+    {
+      "id": "input",
+      "type": "input",
+      "name": "Subject",
+      "config": {
+        "description": "Minimal end-to-end smoke test of the Slack human_gate approval loop. No external tools or MCPs required.",
+        "fields": {
+          "subject": {
+            "description": "Short description of what you'd like Lumbergh to approve or reject.",
+            "type": "string",
+            "required": true,
+            "example": "burning down the building"
+          }
+        }
+      }
+    },
+    {
+      "id": "lumbergh",
+      "type": "human_gate",
+      "name": "Lumbergh decides",
+      "config": {
+        "channel": "#approvals",
+        "approver": "Bill Lumbergh",
+        "icon": "lumbergh",
+        "timeoutSeconds": 600,
+        "decisionValues": ["approve", "reject"],
+        "messageTemplate": "Yeeeeah, about that *{{input.subject}}* — I'm gonna need you to go ahead and make a decision, mmkay? Thaaat would be greeeat."
+      }
+    },
+    {
+      "id": "finalize",
+      "type": "finalize",
+      "name": "Finalize",
+      "config": {
+        "summaryFields": ["decision"],
+        "slackChannel": "#approvals",
+        "slackTitle": "Smoke test complete: {{input.subject}}"
+      }
+    }
+  ],
+  "edges": [
+    { "id": "e-in-lum",  "source": "input",    "target": "lumbergh" },
+    { "id": "e-lum-fi-a","source": "lumbergh", "target": "finalize", "condition": "approve" },
+    { "id": "e-lum-fi-r","source": "lumbergh", "target": "finalize", "condition": "reject"  }
+  ]
+}

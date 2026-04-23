@@ -19,6 +19,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import express from "express";
 import crypto from "crypto";
+import { anthropic } from "../config/anthropic";
 import type { WorkflowSchema } from "../workflow/types";
 import { validateWorkflowSchema } from "../workflow/schemaValidator";
 import { executeWorkflow } from "../workflow/executor";
@@ -153,6 +154,77 @@ function parseCommandText(text: string): {
 }
 
 /**
+ * Extract structured input values from freeform user text using a cheap
+ * Claude call. The workflow's own input-field spec drives the extraction.
+ *
+ * Returns whatever fields could be confidently extracted. Missing fields
+ * are surfaced via the caller (so the Slack response can ask for them).
+ */
+async function extractInputsFromText(params: {
+  userText: string;
+  inputSpec: Record<
+    string,
+    { description?: string; type?: string; required?: boolean; example?: string }
+  >;
+  workflowPurpose?: string;
+}): Promise<{ values: Record<string, unknown>; missing: string[] }> {
+  const fieldNames = Object.keys(params.inputSpec);
+  if (fieldNames.length === 0) {
+    return { values: {}, missing: [] };
+  }
+
+  const fieldSpec = Object.entries(params.inputSpec)
+    .map(
+      ([name, s]) =>
+        `  - ${name} (${s.type ?? "string"}${s.required === false ? ", optional" : ""}): ${s.description ?? "(no description)"}${s.example ? ` [example: ${s.example}]` : ""}`
+    )
+    .join("\n");
+
+  const system =
+    "Extract the fields listed below from the user's request. Return ONLY a JSON object with the fields you can fill in confidently. Omit any field you'd have to guess. If a value is stated but not labeled (e.g., a raw URL or a quarter name), infer which field it belongs to. Do not invent values.";
+
+  const user = [
+    params.workflowPurpose ? `Workflow purpose: ${params.workflowPurpose}` : null,
+    `Fields to extract:\n${fieldSpec}`,
+    "",
+    `User's request:\n"""${params.userText}"""`,
+    "",
+    "Respond with ONLY a JSON object. No prose, no code fences.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    const resp = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 400,
+      system,
+      messages: [{ role: "user", content: user }],
+    });
+    const raw = resp.content
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("")
+      .trim();
+    // Strip a potential ```json fence just in case
+    const cleaned = raw.replace(/^```(?:json)?\s*/, "").replace(/```$/, "");
+    const parsed = JSON.parse(cleaned);
+    if (!parsed || typeof parsed !== "object") {
+      return { values: {}, missing: fieldNames };
+    }
+    const values = parsed as Record<string, unknown>;
+    const missing = fieldNames.filter(
+      (f) =>
+        params.inputSpec[f].required !== false &&
+        (values[f] === undefined || values[f] === null || values[f] === "")
+    );
+    return { values, missing };
+  } catch (err) {
+    console.warn("[slackRoutes] input extraction failed:", err);
+    return { values: {}, missing: fieldNames };
+  }
+}
+
+/**
  * Resolve a workflow by ID or by (case-insensitive) name.
  */
 async function resolveWorkflow(selector: string): Promise<
@@ -189,15 +261,16 @@ router.post("/slack/command", verifySlackSignature, async (req: Request, res: Re
     const userName =
       typeof req.body?.user_name === "string" ? req.body.user_name : "someone";
 
-    const { selector, input } = parseCommandText(text);
+    const { selector, input: parsedInput } = parseCommandText(text);
     if (!selector) {
       res.json({
         response_type: "ephemeral",
         text:
-          "Usage: `/flow <workflow-name-or-id> [freeform text | {json input}]`\n" +
+          "Usage: `/flow <workflow-name-or-id> <describe what you want in plain English>`\n" +
           "Examples:\n" +
-          "  `/flow deal-desk {\"opportunityId\": \"0063K00000XyZ\"}`\n" +
-          "  `/flow incident-commander SENTRY-4421`",
+          "  `/flow deal-desk review opportunity 0063K00000XyZab`\n" +
+          "  `/flow incident-commander page on SENTRY-4421`\n" +
+          "  `/flow tps-report for Q2 2026`",
       });
       return;
     }
@@ -219,6 +292,48 @@ router.post("/slack/command", verifySlackSignature, async (req: Request, res: Re
         text: `Workflow \`${workflow.name}\` has an invalid schema: ${validation.errors.join(", ")}`,
       });
       return;
+    }
+
+    // If the workflow's entry node declares field specs, extract the
+    // structured inputs from the user's natural-language text. We only
+    // trust extraction — user-supplied JSON in parsedInput still wins.
+    const entryNode = schema.nodes.find((n) => n.id === schema.entryNodeId);
+    const inputCfg = (entryNode?.config ?? {}) as {
+      fields?: Record<
+        string,
+        { description?: string; type?: string; required?: boolean; example?: string }
+      >;
+      description?: string;
+    };
+    const fieldSpec = inputCfg.fields;
+
+    let input: Record<string, unknown> = { ...parsedInput };
+    const freeformText = typeof parsedInput.text === "string" ? parsedInput.text : "";
+    const userGaveJson =
+      Object.keys(parsedInput).some((k) => k !== "text");
+
+    if (fieldSpec && !userGaveJson && freeformText) {
+      // Keep the extraction fast so Slack's 3s window doesn't blow
+      const extracted = await extractInputsFromText({
+        userText: freeformText,
+        inputSpec: fieldSpec,
+        workflowPurpose: inputCfg.description,
+      });
+      input = { ...extracted.values };
+
+      if (extracted.missing.length > 0) {
+        const hintLines = extracted.missing.map((name) => {
+          const spec = fieldSpec[name];
+          return `  • *${name}* — ${spec.description ?? "(required)"}${spec.example ? `  _e.g._ \`${spec.example}\`` : ""}`;
+        });
+        res.json({
+          response_type: "ephemeral",
+          text:
+            `I couldn't pull all the required inputs for *${workflow.name}* out of that. ` +
+            `Try again and include:\n\n${hintLines.join("\n")}`,
+        });
+        return;
+      }
     }
 
     // Attach invoker to input so agents can reference it
