@@ -169,14 +169,46 @@ async function handleSalesforceConcierge(
     const { sessionId } = await startSalesforceConciergeAsync({
       request: input.request,
     });
+
+    // Bounded long-poll: most asks complete within 45s. Return the final
+    // text directly when they do, so Cowork surfaces it without narration.
+    // If we hit the cap, return a short hand-off message + sessionId so
+    // Cowork can call concierge_status to finish up.
+    const DEADLINE_MS = 45_000;
+    const POLL_INTERVAL_MS = 1_500;
+    const deadline = Date.now() + DEADLINE_MS;
+
+    while (Date.now() < deadline) {
+      const state = getConciergeStatus(sessionId);
+      if (state && state.status === "completed") {
+        return { content: [{ type: "text", text: state.text }] };
+      }
+      if (state && state.status === "failed") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Concierge failed: ${state.error ?? "unknown error"}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    }
+
+    const state = getConciergeStatus(sessionId);
+    const toolLine =
+      state && state.toolCalls.length > 0
+        ? ` (tools used: ${state.toolCalls.join(", ")})`
+        : "";
     return {
       content: [
         {
           type: "text",
           text:
-            `:rocket: On it. I've kicked off the Salesforce concierge in the background — this usually takes 30–90 seconds for complex asks.\n\n` +
-            `**Session ID:** \`${sessionId}\`\n\n` +
-            `Call \`concierge_status\` with that session ID in a few seconds to get progress and the final result. Don't block the user waiting — you can reply to them and check back.`,
+            `Still working on a detailed ask${toolLine}. ` +
+            `Call concierge_status with sessionId \`${sessionId}\` to fetch the result.`,
         },
       ],
     };
@@ -678,7 +710,7 @@ export function createMcpServer(): McpServer {
   // ─── Tool: salesforce_concierge ────────────────────────────────────
   server.tool(
     "salesforce_concierge",
-    "Talk to Salesforce in plain English. This is the preferred tool for ad-hoc Salesforce work: logging a new deal (with automatic web enrichment), asking pipeline questions, updating a record, posting to Chatter. The agent finds-or-creates any records needed — users never paste Salesforce IDs. **This tool returns immediately with a sessionId.** The work runs in the background. Tell the user what you kicked off, then call `concierge_status(sessionId)` a few seconds later to fetch progress and the final result — don't keep the user blocked.",
+    "Talk to Salesforce in plain English. Preferred tool for ad-hoc Salesforce work: logging a new deal (with automatic web enrichment), asking pipeline questions, updating a record, posting to Chatter. Finds-or-creates records — users never paste IDs. Usually returns the final answer directly. For very long asks, may return a handoff message with a sessionId you can pass to concierge_status.",
     salesforceConciergeSchema.shape,
     async (input) => handleSalesforceConcierge(input)
   );
