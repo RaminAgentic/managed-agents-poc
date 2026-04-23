@@ -26,7 +26,10 @@ import {
 } from "../tools/salesforce";
 
 const MODEL = "claude-opus-4-7";
-const SPEED: "standard" | "fast" = "fast";
+// Opus 4.7 does not support speed=fast (only Sonnet / Haiku do).
+// Keeping standard speed; latency is managed by the single-call 120s
+// long-poll in handleSalesforceConcierge.
+const SPEED: "standard" | "fast" = "standard";
 
 const SYSTEM_PROMPT = `
 You are the Salesforce concierge for a sales + revenue-ops team.
@@ -109,9 +112,13 @@ async function getOrCreateConciergeAgent(): Promise<string> {
   ];
 
   agentPromise = (async () => {
+    const modelField =
+      SPEED === "fast"
+        ? ({ id: MODEL, speed: SPEED } as unknown as Anthropic.Beta.Agents.AgentCreateParams["model"])
+        : (MODEL as Anthropic.Beta.Agents.AgentCreateParams["model"]);
     const agent = await anthropic.beta.agents.create({
       name: "Salesforce concierge",
-      model: { id: MODEL, speed: SPEED },
+      model: modelField,
       system: SYSTEM_PROMPT,
       tools,
     });
