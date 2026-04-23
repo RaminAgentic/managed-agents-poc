@@ -1,31 +1,52 @@
 # Managed Agents — Technical Handoff
 
-This document is the authoritative spec for building the production
-mirror of the current POC. It freezes the v1 schema and defines the v2
-additions (P0 + P1). Any flow that validates against the v1 schema is
-forward-compatible with v2 — all v2 changes are additive optional
-fields.
+This document is the authoritative spec for the Managed Agents
+orchestration + governance framework. It freezes the v1 schema and
+defines the v2 additions (P0 + P1). Any flow that validates against
+the v1 schema is forward-compatible with v2 — all v2 changes are
+additive optional fields.
 
-**Implementation status** (as of commit `0adff26`): v1 is stable; all
-v2 features described in §9 are implemented in the POC and passing
-type-check + fixture validation. Use the POC code as the reference
-implementation; when the mirror diverges, the POC is authoritative for
-behavior.
+**Scope**: this document is the complete, self-contained spec. You do
+not need access to any existing codebase or version-control history —
+everything required to build a compatible system is here. When §9 and
+§15 disagree, §15 wins (§15 captures corrections to the spec that
+only became obvious during implementation).
 
-The v2 work landed in 6 commits on top of v1:
+**Relative size and risk**: v1 is the core orchestration engine —
+schema types, validator, parallel DAG executor, the six handler types
+(input/agent/gate/router/human_gate/finalize), the managed-agent
+registry, the custom-tool dispatch model, the MCP surface. That's the
+majority of the work and the part that underpins everything else. v2
+is six surgical additions on top: cancellation, retries, notify, two
+new node types, a scheduler, and a budget accounting pass. Each v2
+feature was implemented in a day or less and has a clear single-point
+integration in the executor or the node-handler dispatch.
 
-| Commit | Scope |
-|--------|-------|
-| `09494ea` | Schema types (completion, retry, budget, triggers, subflow, map) + Prisma migration adding `parent_run_id`, `cancel_requested`, `notify_json`, `tokens_used` to `workflow_runs`. Subflow + map handler files. |
-| `beb2ab4` | Validator tightening: gate/router/human_gate edge conditions, subflow/map field checks. |
-| `d420d93` | Cancellation endpoint, retry wrapper, notify dispatcher. |
-| `f7f59a7` | Async/notify plumbed into `POST /api/runs` and MCP `start_workflow`. |
-| `b0d2fc9` | Budget enforcement (tokens + duration) + cron/webhook scheduler. |
-| `0adff26` | HANDOFF.md landed. |
+**Recommended build sequence** (stages are independent after stage 1;
+each stage is fully testable on its own):
 
-See §15 for implementation learnings that differ from what §9 originally
-specced — the spec was mostly right, but a handful of details changed
-during build. The mirror should follow §15, not just §9.
+1. **Foundation.** DB schema (§3), Prisma client, workflow/run CRUD,
+   schema validator (§4, §9.1 validator rules), fixtures loaded.
+2. **Executor core.** Parallel DAG walker (§5), input/agent/gate/
+   router/human_gate/finalize handlers, context resolver (§6, §5).
+   Agents still work without the registry — bolt the registry on next.
+3. **Managed-agent registry** (§6 — the single most important
+   subsystem). Create/update/archive semantics, stable configHash,
+   race handling.
+4. **MCP server** (§7) + custom tool dispatch (§8). List/describe/
+   start/status/create workflow tools; Salesforce + flow-builder tool
+   sets.
+5. **v2 P0 — schema + validator tightening + cancellation +
+   retries + notify** (§9.1, §15.1). Cancellation endpoint,
+   `runWithRetry` wrapper in executor, `dispatchNotify` called from
+   terminal paths.
+6. **v2 P1 — subflow + map + triggers + budget** (§9.2, §15.1).
+   Subflow (child-run invocation), map (parallel fan-out over a list),
+   cron + webhook scheduler, token/duration budget enforcement.
+
+**Regression bar**: the eight test recipes in §15.4 must all pass
+end-to-end before declaring done. They cover every P0 and P1 feature
+exactly once and are the fastest way to catch a compat break.
 
 ---
 
@@ -54,8 +75,8 @@ reconstructed even after the workflow is edited many times.
 
 - **Runtime**: Node.js ≥ 18, TypeScript, Express 4
 - **Client**: Vite + React 18 + MUI + React Flow (editor) + React Router
-- **DB**: PostgreSQL via Prisma (earlier POC used SQLite; do NOT
-  replicate — Postgres is required for concurrent step updates)
+- **DB**: PostgreSQL via Prisma. Postgres is required — SQLite does
+  not handle the concurrent step-update patterns the executor uses.
 - **Managed Agents**: `@anthropic-ai/sdk` ≥ 0.90.0 (beta API)
 - **MCP**: `@modelcontextprotocol/sdk` ≥ 1.29, streamable-http transport
 - **Salesforce**: `jsforce` 3.x with JWT bearer OAuth (private key in
@@ -473,22 +494,29 @@ export async function dispatch<Domain>Tool(name: string, input: Record<string, u
 }
 ```
 
-In `agentNodeHandler.ts`, the session loop receives
-`agent.custom_tool_use` events. When the session emits
-`session.status_idle` with `stop_reason: "requires_action"`, we
-dispatch each queued call in parallel and send the results as
-`user.custom_tool_result` events.
+The agent-node handler's session loop receives `agent.custom_tool_use`
+events. When the session emits `session.status_idle` with
+`stop_reason: "requires_action"`, dispatch each queued call in parallel
+and send the results back as `user.custom_tool_result` events. The loop
+continues until `stop_reason: "end_turn"` (success) or
+`retries_exhausted` (fail).
 
-**Existing domains**:
-- `src/tools/salesforce.ts` — `sf_query`, `sf_describe`, `sf_create`,
-  `sf_update`, `sf_upsert`, `sf_chatter`, `sf_watch_chatter`
-  (jsforce-backed, JWT auth, one cached Connection per process)
-- `src/tools/flowBuilder.ts` — `save_workflow`, `list_existing_workflows`
-  (validates + writes to Workflow table)
+**Two tool domains ship in v2.0**:
 
-Adding a domain = (1) define the tool defs + dispatcher, (2) register
-the name set in the handler's dispatch switch, (3) optionally add an
-`includeXTools` shorthand to `AgentNodeConfig` + `expandTools`.
+- **Salesforce** — `sf_query`, `sf_describe`, `sf_create`, `sf_update`,
+  `sf_upsert`, `sf_chatter`, `sf_watch_chatter` (jsforce-backed, JWT
+  auth, one cached Connection per process). See §10 for env vars and
+  §6 for the JWT login flow.
+- **Flow builder** — `save_workflow`, `list_existing_workflows`.
+  `save_workflow` validates a WorkflowSchema + writes to the Workflow
+  table, and MUST call `reloadTriggers()` afterwards so any new cron
+  or webhook trigger takes effect immediately (§9.2 scheduler).
+
+Adding a new tool domain is three steps: (1) define the tool defs +
+an async dispatcher that returns a string, (2) register the tool-name
+set in the agent-handler's dispatch switch, (3) optionally add an
+`includeXTools` shorthand to `AgentNodeConfig` + the tool-expansion
+function used by the agent registry.
 
 ---
 
@@ -554,8 +582,9 @@ uniformly). Retries are ATTEMPT-level — the executor re-invokes the
 handler with the same inputs; it does NOT retry individual tool calls
 inside an agent session (those are Anthropic-side). Emits `step_retry`
 events with `{ attempt, maxAttempts, nextDelayMs, kind, message }`.
-Error classification is regex-based on the error message (see
-`classifyError` in `src/workflow/executor.ts`); swap in SDK-specific
+Error classification is regex-based on the error message
+(timeout/timed out/ETIMEDOUT → `timeout`; 429/rate limit → `rate_limit`;
+5xx patterns → `http_5xx`; else `tool_error`). Swap in SDK-specific
 error-type checks when the SDK exposes them.
 
 **Run cancellation** (no schema change)
@@ -622,28 +651,27 @@ interface WorkflowSchema {
   };
 }
 ```
-**In-process scheduler** — NOT a separate process in v2. Lives in
-`src/workflow/scheduler.ts`, booted from `server.ts`. On startup and
-on every save_workflow call (see `reloadTriggers`), scans all workflows
-and rebuilds the cron + webhook tables. A 60-second tick aligned to
-`:00` fires any workflow whose cron matches the current UTC minute.
-Cron inputs default to `{}` — trigger workflows need to handle empty
-input gracefully (e.g. use default field values).
+**In-process scheduler** — NOT a separate process in v2. Booted from
+the HTTP server's startup path. On boot and after every `save_workflow`
+call, scan all workflows and rebuild two in-memory tables: cron jobs
+and webhook entries. A 60-second tick aligned to `:00` fires any
+workflow whose cron matches the current UTC minute. Cron inputs
+default to `{}` — trigger workflows need to handle empty input
+gracefully (e.g. use default field values).
 
 Webhook triggers auto-register `POST /triggers/<path>`. If `secret` is
 set, requests must include `X-Trigger-Signature: <secret>` (exact
 match — NOT HMAC; harden in the mirror). The posted JSON body becomes
 the run input.
 
-**Cron matcher caveats**: the POC's matcher is a 5-field UTC parser
-supporting `*`, comma lists, `a-b` ranges, `*/n` steps, and day-of-week
-names (`MON`/`TUE`/…). No `L`, `W`, or `#`. Sufficient for POC
-fixtures; swap in `node-cron` / `croner` in the mirror. The interface
-is just `matchCron(expr: string, at: Date): boolean` — single-point
-replacement. The in-process scheduler will miss ticks if the Node
-process is down at the scheduled minute (no catch-up) — for production
-reliability, use a real scheduler with misfire handling, or run the
-tick in a separate always-on worker.
+**Cron matcher**: minimum viable 5-field UTC parser supporting `*`,
+comma lists, `a-b` ranges, `*/n` steps, and day-of-week names
+(`MON`/`TUE`/…). No `L`, `W`, or `#`. Keep the interface minimal —
+`matchCron(expr: string, at: Date): boolean` — so `node-cron` or
+`croner` can be dropped in as a single-point replacement. An in-process
+scheduler will miss ticks if the Node process is down at the scheduled
+minute (no catch-up). For production reliability, use a real scheduler
+with misfire handling, or run the tick in a separate always-on worker.
 
 **Token / cost / duration budgets** (new top-level)
 ```ts
@@ -683,9 +711,9 @@ config so new models can be added without a deploy.
   (`instructions, model, speed, mcpServers, tools, skills`). v2 fields
   like `retry`, `completion`, `budget` MUST NOT enter the hash —
   they're execution-time, not identity.
-- Existing fixtures in this repo are the ground-truth test set. Pull
-  them into the mirror's CI and require them to validate + execute
-  through `finalize` before any schema change ships.
+- The fixtures listed in §14 are the ground-truth test set. Pull them
+  into CI and require them to validate + execute through `finalize`
+  before any schema change ships.
 
 ---
 
@@ -713,10 +741,12 @@ NODE_ENV                   # "production" in Render
    `messages.create` call. Opus uses `effort` instead.
 2. **`speed: fast` is Sonnet/Haiku only.** Passing it to Opus 4.7 →
    400.
-3. **`configHash` stability is do-or-die.** The POC had duplicates
-   piling up because the hash flapped when any execution-time field
-   leaked in. Keep the identity TS-enforced via a dedicated
-   `AgentIdentity` type; never spread `...config` into it.
+3. **`configHash` stability is do-or-die.** Early builds had Anthropic
+   agents piling up because the hash flapped when execution-time fields
+   (inputMapping, timeoutSeconds, outputFormat) leaked into it. Keep
+   the identity TS-enforced via a dedicated `AgentIdentity` type;
+   never spread `...config` into it. Use stable JSON stringification
+   (sort object keys at every level) before hashing.
 4. **`beta.agents.update` requires the current version field.** Always
    `retrieve` first, then `update` — optimistic-locked. On 409, retry
    once (the other writer landed).
@@ -731,9 +761,9 @@ NODE_ENV                   # "production" in Render
 8. **SQLite won't handle the step-update concurrency.** Use Postgres
    from day one.
 9. **Human-gate polls Slack.** If the Slack token is missing, the gate
-   degrades to a time-based pass-through (documented in handler;
-   auto-approves after `timeoutSeconds` for POC demoability — v2
-   should fail-closed by default with an opt-in flag).
+   degrades to a time-based pass-through (auto-approves after
+   `timeoutSeconds`). Fail-closed by default in the mirror — accept
+   an explicit opt-in flag for demo scenarios.
 10. **Output truncation at 100KB** — Opus can emit multi-MB JSON
     artifacts and fill Postgres TEXT columns. Enforce the cap in
     `completeRunStep`.
@@ -788,47 +818,53 @@ NODE_ENV                   # "production" in Render
 
 ---
 
-## 12. Directory layout (mirror this)
+## 12. Recommended directory layout
+
+Not strictly required — mirror this if you want parity with other
+implementations of the same spec; deviate if your team has stronger
+conventions. Filenames are referenced elsewhere in this doc; the names
+matter less than the roles they play.
 
 ```
 src/
-  server.ts                     # Express app + route mounting
-  config/anthropic.ts           # SDK client singleton
-  db/client.ts                  # Prisma client
+  server.ts                     # HTTP app + route mounting + scheduler boot
+  config/anthropic.ts           # Anthropic SDK client singleton
+  db/client.ts                  # Prisma client singleton
   api/
-    runRoutes.ts                # POST /api/runs, GET /api/runs, etc.
+    runRoutes.ts                # POST/GET /api/runs, POST /api/runs/:id/cancel
     workflowRoutes.ts
-    approvalRoutes.ts
+    approvalRoutes.ts           # human-gate decision callbacks
     slackRoutes.ts
-    diagRoutes.ts
+    diagRoutes.ts               # smoke / diag probes
   agent/
-    managedAgentSetup.ts        # environment singleton
-    orchestrator.ts             # /api/chat → wf-flow-builder
-    salesforceConcierge.ts      # /api/concierge → wf-concierge
+    managedAgentSetup.ts        # shared environment singleton
+    orchestrator.ts             # /api/chat → wf-flow-builder (if you expose chat)
+    salesforceConcierge.ts      # optional — thin wrapper starting wf-concierge
   mcp/
-    httpHandler.ts              # POST /mcp (streamable-http)
+    httpHandler.ts              # POST /mcp — streamable-http transport
   tools/
-    salesforce.ts               # SF custom tools
-    flowBuilder.ts              # save_workflow, list_existing_workflows
+    salesforce.ts               # SF custom tools (§8)
+    flowBuilder.ts              # save_workflow, list_existing_workflows (§8)
   workflow/
-    types.ts                    # schema TS types
-    schemaValidator.ts          # validation
-    executor.ts                 # DAG walker
+    types.ts                    # schema TS types (§4, §9)
+    schemaValidator.ts          # validation (§4, §9.1)
+    executor.ts                 # parallel DAG walker (§5)
     persistence.ts              # DB writes
-    agentRegistry.ts            # findOrCreateAgent (§6.1)
+    agentRegistry.ts            # findOrCreateAgent (§6)
     resolveInputMapping.ts      # $-path + {{template}} resolver
-    renderMermaid.ts            # for run visualization
+    renderMermaid.ts            # run graph visualization (optional)
+    notify.ts                   # v2: run-completion dispatcher (§9.1)
+    scheduler.ts                # v2: cron + webhook triggers (§9.2)
     nodeHandlers/
       index.ts                  # getNodeHandler(nodeType)
       inputNodeHandler.ts
-      agentNodeHandler.ts       # §7 custom tool dispatch
+      agentNodeHandler.ts       # §8 custom tool dispatch
       gateNodeHandler.ts
       routerNodeHandler.ts
       humanGateNodeHandler.ts
       finalizeNodeHandler.ts
-      # v2 additions:
-      # subflowNodeHandler.ts
-      # mapNodeHandler.ts
+      subflowNodeHandler.ts     # v2 (§9.2)
+      mapNodeHandler.ts         # v2 (§9.2)
     fixtures/
       flowBuilder.json
       salesforceConcierge.json
@@ -849,47 +885,49 @@ prisma/
 
 ---
 
-## 13. Migration plan from POC to mirror
+## 13. Bring-up plan
 
-1. Stand up the mirror on an empty Postgres DB with the schema above
-   (run the init migration).
-2. Import fixtures unchanged (`npm run seed:demos`). They validate.
-3. Leave the `agents` table empty — the registry will populate it
-   lazily on first run per node. This avoids inheriting any cruft from
-   the POC's DB.
-4. Before declaring the mirror done, run each fixture to `completed`
-   status once. If any fails validation or execution, that's a parity
-   bug.
-5. Implement P0 (retry, cancel, notify-on-done, validator
-   tightening) — tests: a workflow with a retry-3 agent that fails
-   twice then succeeds; a flow started with `async: true` verifying
-   the webhook fires; a cancel mid-human-gate.
-6. Implement P1 (subflow, map, trigger, budget) — tests: a `map` over
-   a 5-item list running in parallel; a cron-triggered workflow; a
-   subflow-calling-subflow pair with shared input.
-7. Export workflows from POC, import into mirror, re-run — zero
-   behavior change for v1 fixtures.
+1. Stand up on an empty Postgres DB with the schema in §3 (run the
+   init migration to create workflows / agents / workflow_runs /
+   run_steps / run_events / approvals, plus the v2 columns on
+   workflow_runs described in §15.1).
+2. Import the fixtures (available on request) and seed them into
+   `workflows`. They validate against the v1 validator in §4 and, with
+   the stricter v2 rules in §9.1, still pass without modification.
+3. Leave the `agents` table empty. The registry populates it lazily
+   on first run per node (§6).
+4. Run each fixture end-to-end to `completed`. Any that fails to
+   validate or execute is a parity bug in the build, not the fixture.
+5. Run the eight v2 recipes in §15.4 — retry, cancel, notify, subflow,
+   map, cron, webhook, budget. All eight must pass.
+6. When later imports arrive from another environment's workflows
+   table, they should round-trip: `workflows.schemaJson` in, validate,
+   execute identically.
 
 ---
 
-## 14. References in the POC codebase
+## 14. Fixture suite (the regression bar)
 
-- Agent registry: `src/workflow/agentRegistry.ts`
-- Executor: `src/workflow/executor.ts`
-- MCP tools: `src/mcp/httpHandler.ts`
-- Salesforce tools: `src/tools/salesforce.ts`
-- Flow builder tools: `src/tools/flowBuilder.ts`
-- Schema validator: `src/workflow/schemaValidator.ts`
-- Input resolver: `src/workflow/resolveInputMapping.ts`
-- Notify dispatcher: `src/workflow/notify.ts`
-- Scheduler (cron + webhook): `src/workflow/scheduler.ts`
-- Subflow handler: `src/workflow/nodeHandlers/subflowNodeHandler.ts`
-- Map handler: `src/workflow/nodeHandlers/mapNodeHandler.ts`
-- Reconcile orphan agents: `src/scripts/reconcileAgents.ts`
-- Fixtures (ground-truth test set): `src/workflow/fixtures/*.json`
+The following fixtures exercise every v1 node type and a representative
+v2 feature. Treat them as acceptance tests — a fixture that fails on
+the new build is a bug in the build, not the fixture.
 
-The mirror should treat the fixtures as a regression suite; a fixture
-that fails to run identically on the mirror is a bug in the mirror.
+| Fixture | Exercises |
+|---|---|
+| `helloWorkflow.json` (if present) or any linear input→agent→finalize | Basic DAG, agent node, inputMapping |
+| `salesforceConcierge.json` | Salesforce custom-tool dispatch, web-search toolset, JSON outputs |
+| `dealDesk.json` | Multi-agent chain, MCP servers (Slack), finalize.slackChannel + slackTitle |
+| `incidentCommander.json` | Four MCP servers (Sentry, Linear, Slack, GitHub), xhigh effort |
+| `tpsReport.json` | Sequential human-gate chain, docx skill, Google Drive MCP |
+| `wealthIntake.json` | 3-way router + fan-in at finalize |
+| `customerOnboarding.json` | 3 parallel extractors → gate (fan-in join) → conditional branches |
+| `humanGateSmoke.json` | Minimal human_gate with 2-way decision |
+| `logNewOpportunity.json` | Web-enrichment + Salesforce mutation chain |
+| `flowBuilder.json` | The flow-builder meta-agent (uses flow-builder custom tools) |
+
+Each of these has been run through type-check + schema validation in
+the reference implementation and passes. Acquire the JSONs from the
+person handing this document to you.
 
 ---
 
@@ -911,8 +949,10 @@ code behaves the way §15 describes.
   `$.steps.<id>.outputs.*`, and `$.item.*` (map body nodes only).
   `resolvePathValue(path, ctx)` is exported for handlers that need to
   resolve a single path (used by map's `over`).
-- `WorkflowRun` gained 4 columns (`parent_run_id`, `cancel_requested`,
-  `notify_json`, `tokens_used`) in migration `20260423150031_v2_run_controls`.
+- `WorkflowRun` gains 4 columns for v2: `parent_run_id` (nullable,
+  indexed), `cancel_requested` (boolean, default false), `notify_json`
+  (nullable text, per-run notify override), `tokens_used` (int,
+  default 0, running tally for budget enforcement).
 - `createWorkflowRun(workflowId, input, { parentRunId?, notify? })` —
   the optional second arg is how subflows attach children and
   per-run notify overrides get persisted.
@@ -1011,5 +1051,5 @@ Recipes that exercise the v2 surface end-to-end:
 - Per-workflow concurrency limits / rate limits
 - Secrets vault / per-flow env binding
 
-All of these are fine for the POC and demo but belong in the mirror's
-definition-of-done.
+All of these are acceptable for v2.0 as specified, but belong in the
+production definition-of-done.
